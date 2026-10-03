@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Compteur de colonies</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --ink:#14262e; --ink-2:#4a5f67; --paper:#e9eff0; --panel:#ffffff; --line:#c8d6d9;
+  --accent:#0e7c86; --accent-ink:#ffffff; --bench:#0f1a1f;
+  --ok:#1b7243; --ok-bg:#dcf1e4; --warn:#8a4b00; --warn-bg:#fbeacb; --bad:#a3162f; --bad-bg:#fadadf;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e3eef0; --ink-2:#9fb4bb; --paper:#0d171b; --panel:#15252b; --line:#2a4048;
+    --accent:#47c4cf; --accent-ink:#04262a; --bench:#070d0f;
+    --ok:#6fd89b; --ok-bg:#12331f; --warn:#f2b862; --warn-bg:#3a2a0c; --bad:#ff8fa3; --bad-bg:#40121c;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e3eef0; --ink-2:#9fb4bb; --paper:#0d171b; --panel:#15252b; --line:#2a4048;
+  --accent:#47c4cf; --accent-ink:#04262a; --bench:#070d0f;
+  --ok:#6fd89b; --ok-bg:#12331f; --warn:#f2b862; --warn-bg:#3a2a0c; --bad:#ff8fa3; --bad-bg:#40121c;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,p{margin:0}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 420px;min-height:100vh}
+.work{padding:20px 22px 28px;min-width:0}
+.top h1{font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.top p{color:var(--ink-2);margin-top:4px;max-width:62ch}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:18px 0 10px}
+.toolbar .grow{flex:1}
+.btn{font:inherit;font-weight:700;font-size:15px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{min-height:34px;font-size:14px;padding:0 10px}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,select:focus-visible,summary:focus-visible,input:focus-visible+label,input[type=range]:focus-visible,input[type=number]:focus-visible,input[type=text]:focus-visible,input[type=checkbox]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg label{display:block;padding:0 14px;min-height:38px;line-height:38px;cursor:pointer;font-weight:700;font-size:15px;color:var(--ink-2)}
+.seg input:checked+label{background:var(--accent);color:var(--accent-ink)}
+.seg label+input+label{border-left:1px solid var(--line)}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:15px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+select,input[type=number],input[type=text]{font:inherit;min-height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 10px;max-width:100%}
+.zoomlab{display:inline-flex;gap:6px;align-items:center;font-size:15px}
+.stagewrap{position:relative;display:flex;height:min(72vh,820px);min-height:320px;overflow:auto;background:var(--bench);border-radius:10px;border:1px solid var(--line)}
+#stage{margin:auto;display:block;flex:none;touch-action:none}
+#stage:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.empty{position:absolute;inset:0;display:grid;place-content:center;gap:14px;text-align:center;padding:24px;color:#cfe0e4}
+.empty p{max-width:36ch;margin:0 auto;font-size:18px;line-height:1.35}
+.empty .row2{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.stagewrap.drop{outline:3px dashed var(--accent);outline-offset:-8px}
+.hint{margin-top:10px;color:var(--ink-2);min-height:1.45em;max-width:84ch}
+.legend{display:flex;gap:8px 18px;flex-wrap:wrap;list-style:none;margin:8px 0 0;padding:0;color:var(--ink-2);font-size:14px}
+.legend li{display:flex;align-items:center;gap:7px}
+.dot{width:14px;height:14px;border-radius:50%;border:2.5px solid;display:inline-block}
+.dash{width:20px;height:0;border-top:2.5px dashed #2fd0dc;display:inline-block}
+.dash2{width:20px;height:0;border-top:2.5px solid #ffb300;display:inline-block}
+.sq{width:14px;height:14px;border-radius:3px;display:inline-block;background:rgba(255,70,70,.55)}
+.side{border-left:1px solid var(--line);background:var(--panel);padding:20px 22px 28px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}
+.result{padding-bottom:18px;border-bottom:1px solid var(--line)}
+.count{display:flex;align-items:baseline;gap:10px}
+.count output{font-size:76px;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.count span{font-size:20px;color:var(--ink-2)}
+.muted{color:var(--ink-2);font-size:14px}
+.conc{margin-top:14px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.concval{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.conc .u{font-size:17px;color:var(--ink-2)}
+.badge{display:inline-block;margin-top:10px;padding:4px 10px;border-radius:6px;font-size:14px;font-weight:700}
+.badge:empty{display:none}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.bad{background:var(--bad-bg);color:var(--bad)}
+.box{margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;display:grid;gap:4px}
+.cls{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.cls input{min-height:32px;font-size:14px;padding:0 8px;min-width:0}
+.cls .n{font-variant-numeric:tabular-nums;text-align:right;font-size:13px;color:var(--ink-2)}
+.chip{width:14px;height:14px;border-radius:50%;border:3px solid;display:inline-block}
+details.blk{border-bottom:1px solid var(--line)}
+details.blk:last-child{border-bottom:0}
+details.blk>summary{list-style:none;cursor:pointer;padding:14px 0;font-weight:700;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+details.blk>summary::-webkit-details-marker{display:none}
+details.blk>summary::after{content:"+";font-weight:400;font-size:22px;color:var(--ink-2)}
+details.blk[open]>summary::after{content:"−"}
+details.blk>.body{padding:0 0 18px}
+.row{display:grid;gap:5px;margin-bottom:12px}
+.row label,.ctl label{font-size:15px;font-weight:700}
+.inline{display:flex;gap:8px}
+.inline input{flex:1;min-width:0}
+.formula{font-size:14px;color:var(--ink-2);margin:2px 0 14px}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin-bottom:12px;align-items:baseline}
+.ctl output{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:14px}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);height:28px;margin:0}
+.ctl .ends{grid-column:1/-1;display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:-4px}
+.polar{margin-bottom:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-weight:700;color:var(--ink-2)}
+td.num,th.num{text-align:right}
+tr.low td{color:var(--ink-2)}
+.x{border:0;background:none;color:var(--ink-2);cursor:pointer;font-size:18px;line-height:1;min-width:32px;min-height:32px;border-radius:6px}
+.x:hover{color:var(--bad)}
+.stats{margin-top:12px;font-size:15px;display:grid;gap:3px}
+.stats strong{font-variant-numeric:tabular-nums}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#hist{width:100%;height:120px;display:block}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10;max-width:90vw}
+.toast.on{opacity:1}
+@media (max-width:960px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;max-height:none;border-left:0;border-top:1px solid var(--line)}
+  .stagewrap{height:60vh}
+  .count output{font-size:64px}
+}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="work">
+    <header class="top">
+      <h1>Compteur de colonies</h1>
+      <p>Dénombrez les colonies d'une boîte de Petri à partir d'une photo, corrigez à la main, puis calculez la concentration en UFC/mL ou UFC/g.</p>
+    </header>
+
+    <div class="toolbar" role="toolbar" aria-label="Outils">
+      <button class="btn primary" id="openBtn" type="button">Ouvrir une photo</button>
+      <input id="file" type="file" accept="image/*" hidden>
+      <button class="btn" id="camBtn" type="button">Prendre une photo</button>
+      <input id="camFile" type="file" accept="image/*" capture="environment" hidden>
+      <button class="btn" id="sampleBtn" type="button">Boîte d'exemple</button>
+      <div class="seg" role="radiogroup" aria-label="Outil actif">
+        <input type="radio" name="tool" id="toolFrame" value="frame" checked><label for="toolFrame">Cadre</label>
+        <input type="radio" name="tool" id="toolEdit" value="edit"><label for="toolEdit">Corriger</label>
+        <input type="radio" name="tool" id="toolExcl" value="excl"><label for="toolExcl">Exclure</label>
+      </div>
+      <button class="btn" id="undoBtn" type="button" disabled>Annuler</button>
+      <label class="chk"><input type="checkbox" id="studentMode"> Mode élève</label>
+      <button class="btn" id="cmpBtn" type="button" hidden>Comparer avec la détection</button>
+      <span class="grow"></span>
+      <label class="zoomlab">Zoom
+        <select id="zoom"><option value="fit">Ajusté</option><option value="1">100 %</option><option value="2">200 %</option><option value="3">300 %</option></select>
+      </label>
+      <label class="chk"><input type="checkbox" id="showMarks" checked> Repères</label>
+      <label class="chk"><input type="checkbox" id="showMask"> Zones détectées</label>
+    </div>
+
+    <div class="stagewrap" id="wrap">
+      <canvas id="stage" hidden tabindex="0" aria-label="Image de la boîte de Petri. Flèches du clavier : déplacer le cadre."></canvas>
+      <div class="empty" id="empty">
+        <p>Déposez ici la photo d'une boîte de Petri, ou ouvrez-la depuis votre appareil.</p>
+        <div class="row2">
+          <button class="btn primary" id="openBtn2" type="button">Ouvrir une photo</button>
+          <button class="btn" id="sampleBtn2" type="button">Essayer avec une boîte simulée</button>
+        </div>
+      </div>
+    </div>
+    <p class="hint" id="hint" aria-live="polite"></p>
+    <ul class="legend" id="legend"></ul>
+  </main>
+
+  <aside class="side">
+    <section class="result" aria-live="polite">
+      <div class="count"><output id="count">0</output><span>colonies</span></div>
+      <p class="muted" id="breakdown">Aucune image chargée.</p>
+      <p class="muted" id="estLine"></p>
+      <div class="conc"><span class="concval" id="conc">—</span><span class="u" id="concU"></span></div>
+      <p class="muted" id="ic"></p>
+      <p class="muted" id="susp"></p>
+      <p class="badge" id="validity"></p>
+      <div class="box" id="cmpBox" hidden></div>
+      <div class="box" id="classBox" hidden></div>
+    </section>
+
+    <details class="blk" open>
+      <summary>Concentration cellulaire</summary>
+      <div class="body">
+        <div class="seg polar" role="radiogroup" aria-label="Type d'échantillon">
+          <input type="radio" name="sType" id="sLiquid" value="liquid" checked><label for="sLiquid">Liquide (UFC/mL)</label>
+          <input type="radio" name="sType" id="sSolid" value="solid"><label for="sSolid">Solide (UFC/g)</label>
+        </div>
+        <div class="two" id="solidFields" hidden>
+          <div class="row"><label for="mass">Masse prélevée (g)</label><input id="mass" type="number" inputmode="decimal" min="0" step="any" value="10"></div>
+          <div class="row"><label for="diluent">Diluant ajouté (mL)</label><input id="diluent" type="number" inputmode="decimal" min="0" step="any" value="90"></div>
+        </div>
+        <div class="row">
+          <label for="vol">Volume ensemencé</label>
+          <div class="inline">
+            <input id="vol" type="number" inputmode="decimal" min="0" step="any" value="100">
+            <select id="volUnit" aria-label="Unité du volume"><option value="ul">µL</option><option value="ml">mL</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <label for="dil" id="dilLabel">Dilution de la suspension déposée</label>
+          <select id="dil"></select>
+        </div>
+        <div class="row">
+          <label for="range">Plage de boîte comptable</label>
+          <select id="range"><option value="30-300">30 à 300 colonies (classique)</option><option value="10-150">10 à 150 colonies (ISO 7218)</option></select>
+        </div>
+        <p class="formula" id="formula">Concentration = colonies ÷ (volume en mL × facteur de dilution)</p>
+        <div class="two">
+          <div class="row"><label for="sname">Échantillon</label><input id="sname" type="text" placeholder="ex. eau du bassin" autocomplete="off"></div>
+          <div class="row"><label for="oper">Opérateur</label><input id="oper" type="text" autocomplete="off"></div>
+        </div>
+        <button class="btn primary" id="addBtn" type="button">Ajouter cette boîte à la série</button>
+      </div>
+    </details>
+
+    <details class="blk" open>
+      <summary>Détection</summary>
+      <div class="body">
+        <div class="row">
+          <label for="preset">Type de milieu</label>
+          <select id="preset">
+            <option value="auto">Réglage automatique (selon la photo)</option>
+            <option value="clair">Gélose pâle ou ambrée, colonies claires</option>
+            <option value="sang">Gélose au sang ou chocolat, colonies claires</option>
+            <option value="sombre">Colonies sombres ou colorées sur fond clair</option>
+          </select>
+        </div>
+        <div class="seg polar" role="radiogroup" aria-label="Aspect des colonies">
+          <input type="radio" name="polar" id="polLight" value="light" checked><label for="polLight">Colonies claires</label>
+          <input type="radio" name="polar" id="polDark" value="dark"><label for="polDark">Colonies sombres</label>
+        </div>
+        <div class="ctl"><label for="thr">Contraste minimal</label><output id="thrV">12</output>
+          <input id="thr" type="range" min="1" max="60" step="1" value="12"></div>
+        <div class="ctl"><label for="minD">Diamètre minimal</label><output id="minDV"></output>
+          <input id="minD" type="range" min="0.2" max="3" step="0.1" value="0.5"></div>
+        <div class="ctl"><label for="maxD">Diamètre maximal</label><output id="maxDV"></output>
+          <input id="maxD" type="range" min="2" max="20" step="0.5" value="8"></div>
+        <div class="ctl"><label for="split">Séparation des colonies accolées</label><output id="splitV"></output>
+          <input id="split" type="range" min="0" max="100" step="1" value="72">
+          <div class="ends"><span>Aucune</span><span>Forte</span></div></div>
+        <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="autoEdge" checked> Exclure automatiquement le bord sombre de la gélose</label>
+        <p class="muted" style="margin-bottom:12px">Le trait orange sur l'image montre la limite du comptage. Décochez pour compter jusqu'au cadre bleu.</p>
+        <div class="ctl"><label for="margin">Marge supplémentaire au bord</label><output id="marginV"></output>
+          <input id="margin" type="range" min="0" max="12" step="0.5" value="1.5"></div>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Photo et boîte</summary>
+      <div class="body">
+        <div class="row">
+          <label for="plateMm">Diamètre intérieur de la boîte (mm)</label>
+          <input id="plateMm" type="number" inputmode="decimal" min="20" step="1" value="85">
+        </div>
+        <div class="ctl"><label for="plateR">Taille du cadre</label><output id="plateRV"></output>
+          <input id="plateR" type="range" min="50" max="800" step="1" value="400"></div>
+        <div class="btnrow" style="margin:0 0 12px">
+          <button class="btn small" id="autoPlateBtn" type="button">Détecter la boîte</button>
+          <button class="btn small" id="centerBtn" type="button">Recentrer le cadre</button>
+        </div>
+        <div class="row">
+          <label for="chan">Canal utilisé pour le contraste</label>
+          <select id="chan"><option value="lum">Luminosité</option><option value="g">Vert</option><option value="r">Rouge</option><option value="b">Bleu</option></select>
+        </div>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Comptage par secteur</summary>
+      <div class="body">
+        <p class="muted" style="margin-bottom:12px">Pour une boîte trop dense : ne comptez qu'une fraction de la boîte, le total est extrapolé.</p>
+        <div class="row">
+          <label for="frac">Fraction comptée</label>
+          <select id="frac"><option value="1">Boîte entière</option><option value="0.5">1/2</option><option value="0.25">1/4</option><option value="0.125">1/8</option></select>
+        </div>
+        <div class="ctl"><label for="ang">Orientation du secteur</label><output id="angV">0°</output>
+          <input id="ang" type="range" min="0" max="359" step="1" value="0"></div>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Zones exclues</summary>
+      <div class="body">
+        <p class="muted" style="margin-bottom:12px">Choisissez l'outil « Exclure » puis passez sur les reflets, étiquettes ou bulles à ignorer.</p>
+        <div class="ctl"><label for="brush">Taille du pinceau</label><output id="brushV"></output>
+          <input id="brush" type="range" min="1" max="15" step="0.5" value="4"></div>
+        <button class="btn small" id="clearExcl" type="button" disabled>Effacer les zones exclues</button>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Classes de colonies</summary>
+      <div class="body">
+        <div class="two">
+          <div class="row"><label for="classMode">Classer par</label>
+            <select id="classMode"><option value="none">Pas de classes</option><option value="size">Taille</option><option value="color">Couleur</option></select></div>
+          <div class="row"><label for="classK">Nombre de classes</label>
+            <select id="classK"><option>2</option><option selected>3</option><option>4</option></select></div>
+        </div>
+        <p class="muted">Les comptes et concentrations de chaque classe apparaissent en haut.</p>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Tailles des colonies</summary>
+      <div class="body">
+        <canvas id="hist" width="360" height="120" aria-label="Histogramme des diamètres"></canvas>
+        <p class="muted" id="histInfo">Aucune colonie.</p>
+      </div>
+    </details>
+
+    <details class="blk" open>
+      <summary>Série de boîtes</summary>
+      <div class="body">
+        <p class="muted" id="serieEmpty">Aucune boîte enregistrée. Ajoutez-en pour comparer plusieurs dilutions ou répétitions.</p>
+        <table id="serieTable" hidden>
+          <thead><tr><th>Boîte</th><th class="num">Colonies</th><th class="num">Résultat</th><th></th></tr></thead>
+          <tbody id="serieBody"></tbody>
+        </table>
+        <div class="stats" id="stats"></div>
+        <div class="btnrow">
+          <button class="btn" id="csvBtn" type="button" disabled>Exporter en CSV</button>
+          <button class="btn" id="clearSerie" type="button" disabled>Vider la série</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary>Session et rapport</summary>
+      <div class="body">
+        <div class="btnrow" style="margin-top:0">
+          <button class="btn" id="saveSession" type="button" disabled>Enregistrer la session</button>
+          <button class="btn" id="openSession" type="button">Ouvrir une session</button>
+          <input id="sessionFile" type="file" accept=".json,application/json" hidden>
+          <button class="btn" id="pdfBtn" type="button" disabled>Rapport PDF</button>
+          <button class="btn" id="pngBtn" type="button" disabled>Image annotée</button>
+        </div>
+        <p class="muted" style="margin-top:10px">La session contient la photo, le cadre, les réglages et vos corrections. Le rapport PDF nécessite une connexion internet.</p>
+      </div>
+    </details>
+  </aside>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+/*CORE_START*/
+function integral(a, W, H) {
+  const S = W + 1, I = new Float64Array(S * (H + 1));
+  for (let y = 0; y < H; y++) {
+    let row = 0; const o = y * W, p = (y + 1) * S, q = y * S;
+    for (let x = 0; x < W; x++) { row += a[o + x]; I[p + x + 1] = I[q + x + 1] + row; }
+  }
+  return I;
+}
+function boxSum(I, W, x0, y0, x1, y1) {
+  const S = W + 1;
+  return I[y1 * S + x1] - I[y0 * S + x1] - I[y1 * S + x0] + I[y0 * S + x0];
+}
+function meanFilter(a, W, H, r) {
+  const I = integral(a, W, H), out = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1);
+    for (let x = 0; x < W; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
+      out[y * W + x] = boxSum(I, W, x0, y0, x1, y1) / ((x1 - x0) * (y1 - y0));
+    }
+  }
+  return out;
+}
+function maskedMean(a, mask, W, H, r, bb) {
+  const am = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) am[i] = mask[i] ? a[i] : 0;
+  const Ia = integral(am, W, H), Im = integral(mask, W, H);
+  const out = new Float32Array(W * H);
+  for (let y = bb.y0; y < bb.y1; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1);
+    for (let x = bb.x0; x < bb.x1; x++) {
+      const i = y * W + x; if (!mask[i]) continue;
+      const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
+      const m = boxSum(Im, W, x0, y0, x1, y1);
+      out[i] = m > 0 ? boxSum(Ia, W, x0, y0, x1, y1) / m : a[i];
+    }
+  }
+  return out;
+}
+function morph(bin, W, H, bb, dil) {
+  const tmp = new Uint8Array(W * H), out = new Uint8Array(W * H);
+  for (let y = bb.y0; y < bb.y1; y++) {
+    for (let x = bb.x0; x < bb.x1; x++) {
+      let v = dil ? 0 : 1;
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, b = (xx < 0 || xx >= W) ? 0 : bin[y * W + xx];
+        if (dil) v |= b; else v &= b;
+      }
+      tmp[y * W + x] = v;
+    }
+  }
+  for (let y = bb.y0; y < bb.y1; y++) {
+    for (let x = bb.x0; x < bb.x1; x++) {
+      let v = dil ? 0 : 1;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy, b = (yy < 0 || yy >= H) ? 0 : tmp[yy * W + x];
+        if (dil) v |= b; else v &= b;
+      }
+      out[y * W + x] = v;
+    }
+  }
+  return out;
+}
+function labelCC(bin, W, H, bb) {
+  const lab = new Int32Array(W * H), parent = [0]; let next = 1;
+  const find = a => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+  const union = (p, q) => { p = find(p); q = find(q); if (p !== q) { if (p < q) parent[q] = p; else parent[p] = q; } };
+  for (let y = bb.y0; y < bb.y1; y++) {
+    for (let x = bb.x0; x < bb.x1; x++) {
+      const i = y * W + x; if (!bin[i]) continue;
+      const a = x > 0 ? lab[i - 1] : 0;
+      const b = (y > 0 && x > 0) ? lab[i - W - 1] : 0;
+      const c = y > 0 ? lab[i - W] : 0;
+      const d = (y > 0 && x < W - 1) ? lab[i - W + 1] : 0;
+      let mn = 0;
+      if (a) mn = a;
+      if (b && (!mn || b < mn)) mn = b;
+      if (c && (!mn || c < mn)) mn = c;
+      if (d && (!mn || d < mn)) mn = d;
+      if (!mn) { lab[i] = next; parent.push(next); next++; }
+      else {
+        lab[i] = mn;
+        if (a) union(mn, a); if (b) union(mn, b); if (c) union(mn, c); if (d) union(mn, d);
+      }
+    }
+  }
+  const map = new Int32Array(next); let k = 0;
+  for (let l = 1; l < next; l++) { const r = find(l); map[l] = (r === l) ? ++k : map[r]; }
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) {
+    const i = y * W + x; if (lab[i]) lab[i] = map[lab[i]];
+  }
+  return { lab, count: k };
+}
+function distTransform(bin, W, H, bb) {
+  const d = new Float32Array(W * H), BIG = 1e6;
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) d[y * W + x] = bin[y * W + x] ? BIG : 0;
+  const g = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : d[y * W + x];
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) {
+    const i = y * W + x; if (!bin[i]) continue;
+    let v = d[i];
+    v = Math.min(v, g(x - 1, y) + 3, g(x - 1, y - 1) + 4, g(x, y - 1) + 3, g(x + 1, y - 1) + 4);
+    d[i] = v;
+  }
+  for (let y = bb.y1 - 1; y >= bb.y0; y--) for (let x = bb.x1 - 1; x >= bb.x0; x--) {
+    const i = y * W + x; if (!bin[i]) continue;
+    let v = d[i];
+    v = Math.min(v, g(x + 1, y) + 3, g(x + 1, y + 1) + 4, g(x, y + 1) + 3, g(x - 1, y + 1) + 4);
+    d[i] = v;
+  }
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) d[y * W + x] /= 3;
+  return d;
+}
+function lineMin(dt, W, px, py, qx, qy) {
+  const n = Math.max(1, Math.ceil(Math.hypot(qx - px, qy - py)));
+  let m = Infinity;
+  for (let k = 0; k <= n; k++) {
+    const t = k / n, x = Math.round(px + (qx - px) * t), y = Math.round(py + (qy - py) * t);
+    const v = dt[y * W + x]; if (v < m) m = v;
+  }
+  return m;
+}
+function plateBox(plate, W, H) {
+  return {
+    x0: Math.max(0, Math.floor(plate.cx - plate.r) - 2), y0: Math.max(0, Math.floor(plate.cy - plate.r) - 2),
+    x1: Math.min(W, Math.ceil(plate.cx + plate.r) + 3), y1: Math.min(H, Math.ceil(plate.cy + plate.r) + 3)
+  };
+}
+function plateMask(W, H, plate, rIn, bb, sector, excl, lim) {
+  const mask = new Uint8Array(W * H), r2 = rIn * rIn, TAU = Math.PI * 2, nb = lim ? lim.length : 0;
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) {
+    const dx = x - plate.cx, dy = y - plate.cy, d2 = dx * dx + dy * dy;
+    if (lim) {
+      const bi = Math.floor((((Math.atan2(dy, dx) % TAU) + TAU) % TAU) / TAU * nb) % nb, l = lim[bi];
+      if (l <= 0 || d2 > l * l) continue;
+    } else if (d2 > r2) continue;
+    if (sector) {
+      let a = Math.atan2(dy, dx) - sector.a0; a = ((a % TAU) + TAU) % TAU;
+      if (a >= sector.span) continue;
+    }
+    mask[y * W + x] = 1;
+  }
+  if (excl && excl.length) {
+    for (const e of excl) {
+      const x0 = Math.max(bb.x0, Math.floor(e.x - e.r)), x1 = Math.min(bb.x1, Math.ceil(e.x + e.r) + 1);
+      const y0 = Math.max(bb.y0, Math.floor(e.y - e.r)), y1 = Math.min(bb.y1, Math.ceil(e.y + e.r) + 1);
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        if (Math.hypot(x - e.x, y - e.y) <= e.r) mask[y * W + x] = 0;
+      }
+    }
+  }
+  return mask;
+}
+
+/* Bord utile de la gélose : pour chaque secteur angulaire, rayon où l'image s'écarte nettement du niveau central */
+function edgeRadii(sm, W, H, plate, nb) {
+  const R = plate.r, TAU = Math.PI * 2, ns = 7, r0 = Math.floor(0.55 * R), r1 = Math.floor(R), out = new Float32Array(nb);
+  const med = a => { const s = Float32Array.from(a).sort(); return s[s.length >> 1]; };
+  for (let b = 0; b < nb; b++) {
+    const prof = [];
+    for (let r = r0; r <= r1; r++) {
+      const vals = [];
+      for (let k = 0; k < ns; k++) {
+        const a = ((b + (k + 0.5) / ns) / nb) * TAU, x = Math.round(plate.cx + r * Math.cos(a)), y = Math.round(plate.cy + r * Math.sin(a));
+        if (x >= 0 && x < W && y >= 0 && y < H) vals.push(sm[y * W + x]);
+      }
+      prof.push(vals.length ? med(vals) : NaN);
+    }
+    const i1 = Math.floor(0.8 * R) - r0, refArr = prof.slice(0, i1 + 1).filter(isFinite);
+    if (refArr.length < 10) { out[b] = R; continue; }
+    const K = 4, dd = [];
+    for (let i = 0; i + K < prof.length; i++) dd.push(isFinite(prof[i]) && isFinite(prof[i + K]) ? Math.abs(prof[i] - prof[i + K]) : 0);
+    const refDD = dd.slice(0, i1 + 1), mDD = med(refDD), devD = Float32Array.from(refDD, v => Math.abs(v - mDD)).sort(), sDD = 1.4826 * devD[devD.length >> 1];
+    const T = Math.max(22, mDD + 6 * sDD); let e = R;
+    for (let i = Math.max(0, Math.floor(0.7 * R) - r0); i < dd.length; i++) { if (dd[i] > T) { e = r0 + i; break; } }
+    out[b] = e;
+  }
+  const sm2 = new Float32Array(nb);
+  for (let b = 0; b < nb; b++) { const w9 = []; for (let k = -4; k <= 4; k++) w9.push(out[(b + k + nb) % nb]); sm2[b] = Math.max(0.8 * R, med(w9)); }
+  return sm2;
+}
+/* Détection : P = {light, thr, minDpx, maxDpx, marginPx, bgRadiusPx, ratio, grayId} (ratio = 0 : pas de séparation) */
+function detect(gray, W, H, plate, P, cache) {
+  cache = cache || {};
+  const rIn = plate.r - P.marginPx;
+  const bb = plateBox(plate, W, H);
+  if (rIn < 8) return { colonies: [], bin: new Uint8Array(W * H), bb };
+  const bgr = Math.max(6, Math.round(P.bgRadiusPx));
+  const key = [plate.cx.toFixed(1), plate.cy.toFixed(1), plate.r.toFixed(1), P.marginPx.toFixed(1), bgr, P.grayId || 0,
+    P.sector ? P.sector.a0.toFixed(3) + '/' + P.sector.span.toFixed(3) : '-', P.exclVer || 0, P.autoEdge ? 1 : 0].join('|');
+  if (cache.key !== key) {
+    const sm = meanFilter(gray, W, H, 1);
+    let lim = null;
+    if (P.autoEdge) { const eb = edgeRadii(sm, W, H, plate, 72); lim = Float32Array.from(eb, e => Math.min(plate.r, e) - P.marginPx); }
+    const mask = plateMask(W, H, plate, rIn, bb, P.sector, P.excl, lim);
+    const bg = maskedMean(sm, mask, W, H, bgr, bb);
+    cache.key = key; cache.mask = mask; cache.sm = sm; cache.bg = bg; cache.lim = lim;
+  }
+  const mask = cache.mask, sm = cache.sm, bg = cache.bg;
+  const sgn = P.light ? 1 : -1;
+  let bin = new Uint8Array(W * H);
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) {
+    const i = y * W + x;
+    if (mask[i] && sgn * (sm[i] - bg[i]) > P.thr) bin[i] = 1;
+  }
+  bin = morph(morph(bin, W, H, bb, true), W, H, bb, false);
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) { const i = y * W + x; if (!mask[i]) bin[i] = 0; }
+  const { lab } = labelCC(bin, W, H, bb);
+  const dt = distTransform(bin, W, H, bb);
+  const minR = Math.max(1.0, P.minDpx / 2 * 0.8);
+  const byComp = new Map();
+  for (let y = bb.y0 + 1; y < bb.y1 - 1; y++) for (let x = bb.x0 + 1; x < bb.x1 - 1; x++) {
+    const i = y * W + x; if (!bin[i]) continue;
+    const v = dt[i]; if (v < minR) continue;
+    if (v <= dt[i - 1] || v <= dt[i - W - 1] || v <= dt[i - W] || v <= dt[i - W + 1]) continue;
+    if (v < dt[i + 1] || v < dt[i + W + 1] || v < dt[i + W] || v < dt[i + W - 1]) continue;
+    const l = lab[i]; let arr = byComp.get(l);
+    if (!arr) { arr = []; byComp.set(l, arr); }
+    arr.push({ x, y, v });
+  }
+  const colonies = [];
+  byComp.forEach(arr => {
+    arr.sort((p, q) => q.v - p.v);
+    const peaks = [];
+    const lim = Math.min(arr.length, 4000);
+    for (let k = 0; k < lim; k++) {
+      const c = arr[k]; let ok = true;
+      if (peaks.length && !(P.ratio > 0)) break;
+      for (let j = 0; j < peaks.length; j++) {
+        const q = peaks[j], mn = Math.min(c.v, q.v);
+        const lm = lineMin(dt, W, c.x, c.y, q.x, q.y);
+        const sep = (mn - lm) >= Math.max(1.0, (1 - P.ratio) * mn);
+        if (!sep) { ok = false; break; }
+      }
+      if (ok) peaks.push(c);
+      if (peaks.length >= 600) break;
+    }
+    for (const p of peaks) {
+      const D = 2 * p.v;
+      if (D >= P.minDpx && D <= P.maxDpx) colonies.push({ x: p.x, y: p.y, r: p.v });
+    }
+  });
+  return { colonies, bin, bb, lim: cache.lim || null };
+}
+/* Suggestion de réglages à partir de l'image : polarité et contraste minimal */
+function suggest(gray, W, H, plate, marginPx, autoEdge) {
+  const rIn = plate.r - marginPx, bb = plateBox(plate, W, H);
+  if (rIn < 8) return { light: true, thr: 12 };
+  const sm = meanFilter(gray, W, H, 1);
+  const lim = autoEdge ? Float32Array.from(edgeRadii(sm, W, H, plate, 72), e => Math.min(plate.r, e) - marginPx) : null;
+  const mask = plateMask(W, H, plate, rIn, bb, null, null, lim);
+  const bg = maskedMean(sm, mask, W, H, Math.max(8, Math.round(plate.r * 0.2)), bb);
+  const vals = [];
+  for (let y = bb.y0; y < bb.y1; y += 2) for (let x = bb.x0; x < bb.x1; x += 2) {
+    const i = y * W + x; if (mask[i]) vals.push(sm[i] - bg[i]);
+  }
+  if (vals.length < 100) return { light: true, thr: 12 };
+  const s = Float32Array.from(vals).sort();
+  const med = s[s.length >> 1];
+  const dev = Float32Array.from(s, v => Math.abs(v - med)).sort();
+  const sigma = 1.4826 * dev[dev.length >> 1];
+  let pos = 0, neg = 0;
+  const t = Math.max(4, 3 * sigma);
+  for (const v of vals) { if (v - med > t) pos++; else if (v - med < -t) neg++; }
+  return { light: pos >= neg, thr: Math.min(40, Math.max(6, Math.round(3 * sigma))) };
+}
+
+/* Détection automatique de la boîte (transformée de Hough sur les contours, image réduite) */
+function detectPlate(gray, W, H) {
+  const sc = Math.min(1, 300 / Math.max(W, H));
+  const w = Math.max(24, Math.round(W * sc)), h = Math.max(24, Math.round(H * sc));
+  const kx = W / w, ky = H / h, g = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const ya = Math.floor(y * ky), yb = Math.max(ya + 1, Math.floor((y + 1) * ky));
+    for (let x = 0; x < w; x++) {
+      const xa = Math.floor(x * kx), xb = Math.max(xa + 1, Math.floor((x + 1) * kx));
+      let s = 0, n = 0;
+      for (let yy = ya; yy < yb && yy < H; yy++) for (let xx = xa; xx < xb && xx < W; xx++) { s += gray[yy * W + xx]; n++; }
+      g[y * w + x] = n ? s / n : 0;
+    }
+  }
+  const sm = meanFilter(g, w, h, 1);
+  const gx = new Float32Array(w * h), gy = new Float32Array(w * h), mag = new Float32Array(w * h), ms = [];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    const sx = (sm[i - w + 1] + 2 * sm[i + 1] + sm[i + w + 1]) - (sm[i - w - 1] + 2 * sm[i - 1] + sm[i + w - 1]);
+    const sy = (sm[i + w - 1] + 2 * sm[i + w] + sm[i + w + 1]) - (sm[i - w - 1] + 2 * sm[i - w] + sm[i - w + 1]);
+    gx[i] = sx; gy[i] = sy; mag[i] = Math.hypot(sx, sy); ms.push(mag[i]);
+  }
+  const sorted = Float32Array.from(ms).sort();
+  const thr = Math.max(8, 0.3 * sorted[Math.floor(sorted.length * 0.995)]);
+  const rmin = Math.round(0.25 * Math.min(w, h)), rmax = Math.round(0.62 * Math.max(w, h)), nr = rmax - rmin + 1;
+  if (nr < 4) return null;
+  const plane = w * h, acc = new Uint16Array(plane * nr);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x, m = mag[i]; if (m < thr) continue;
+    const ux = gx[i] / m, uy = gy[i] / m;
+    for (let ri = 0; ri < nr; ri++) {
+      const r = rmin + ri;
+      for (let s = -1; s <= 1; s += 2) {
+        const cx = Math.round(x + s * ux * r), cy = Math.round(y + s * uy * r);
+        if (cx >= 0 && cx < w && cy >= 0 && cy < h) acc[ri * plane + cy * w + cx]++;
+      }
+    }
+  }
+  let best = 0, bi = -1, bri = 0;
+  for (let ri = 0; ri < nr; ri++) {
+    const r = rmin + ri;
+    for (let i = 0; i < plane; i++) {
+      const v = acc[ri * plane + i] + (ri > 0 ? acc[(ri - 1) * plane + i] : 0) + (ri < nr - 1 ? acc[(ri + 1) * plane + i] : 0);
+      const s = v / r; if (s > best) { best = s; bi = i; bri = ri; }
+    }
+  }
+  const conf = best / (2 * Math.PI);
+  if (bi < 0 || conf < 0.12) return null;
+  const k = (kx + ky) / 2;
+  return { cx: ((bi % w) + 0.5) * kx, cy: (Math.floor(bi / w) + 0.5) * ky, r: (rmin + bri) * k, conf };
+}
+
+/* k-moyennes (initialisation déterministe par points les plus éloignés) */
+function kmeans(P, k, iters) {
+  const n = P.length; if (!n) return { labels: [], centers: [] };
+  k = Math.max(1, Math.min(k, n)); const dim = P[0].length;
+  const d2 = (a, b) => { let s = 0; for (let j = 0; j < dim; j++) { const t = a[j] - b[j]; s += t * t; } return s; };
+  const mean = new Array(dim).fill(0);
+  for (const p of P) for (let j = 0; j < dim; j++) mean[j] += p[j] / n;
+  let first = 0, fd = Infinity;
+  P.forEach((p, i) => { const d = d2(p, mean); if (d < fd) { fd = d; first = i; } });
+  const centers = [P[first].slice()];
+  while (centers.length < k) {
+    let bi = 0, bd = -1;
+    P.forEach((p, i) => { let m = Infinity; for (const c of centers) m = Math.min(m, d2(p, c)); if (m > bd) { bd = m; bi = i; } });
+    centers.push(P[bi].slice());
+  }
+  const labels = new Array(n).fill(0);
+  for (let it = 0; it < (iters || 20); it++) {
+    let changed = false;
+    P.forEach((p, i) => {
+      let bj = 0, bd = Infinity;
+      centers.forEach((c, j) => { const d = d2(p, c); if (d < bd) { bd = d; bj = j; } });
+      if (labels[i] !== bj) { labels[i] = bj; changed = true; }
+    });
+    const sums = centers.map(() => new Array(dim).fill(0)), cnt = new Array(centers.length).fill(0);
+    P.forEach((p, i) => { cnt[labels[i]]++; for (let j = 0; j < dim; j++) sums[labels[i]][j] += p[j]; });
+    centers.forEach((c, j) => { if (cnt[j]) for (let d = 0; d < dim; d++) c[d] = sums[j][d] / cnt[j]; });
+    if (!changed && it > 0) break;
+  }
+  return { labels, centers };
+}
+
+/* Écriture scientifique à deux chiffres significatifs : { m: '1,5', e: 6 } */
+function sciParts(x) {
+  if (!isFinite(x) || x <= 0) return null;
+  let e = Math.floor(Math.log10(x)), m = Math.round(x / Math.pow(10, e) * 10) / 10;
+  if (m >= 10) { m /= 10; e++; }
+  return { m: m.toFixed(1).replace('.', ','), e };
+}
+
+/* Rapport PDF (jsPDF fourni par l'appelant). d : voir l'appel dans l'interface. */
+function buildReport(JsPDF, d) {
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const M = 15, PW = 210, PH = 297; let y = M;
+  const ensure = h => { if (y + h > PH - M) { doc.addPage(); y = M; } };
+  const put = (x, yy, v, size) => {
+    doc.setFontSize(size);
+    if (v === null || v === undefined) v = '-';
+    if (typeof v === 'string') { doc.text(v, x, yy); return doc.getTextWidth(v); }
+    const base = v.m + ' \u00d7 10'; doc.text(base, x, yy); let w = doc.getTextWidth(base);
+    doc.setFontSize(size * 0.65); const e = String(v.e);
+    doc.text(e, x + w, yy - size * 0.3528 * 0.45); w += doc.getTextWidth(e); doc.setFontSize(size);
+    if (v.unit) { const u = ' ' + v.unit; doc.text(u, x + w, yy); w += doc.getTextWidth(u); }
+    return w;
+  };
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(d.title, M, y + 6); y += 12;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.text(d.subtitle || '', M, y); y += 7; doc.setTextColor(0);
+  if (d.image) {
+    const bw = PW - 2 * M, bh = 105, k = Math.min(bw / d.imgW, bh / d.imgH), w = d.imgW * k, h = d.imgH * k;
+    doc.addImage(d.image, 'JPEG', M, y, w, h); y += h + 6;
+  }
+  const section = (title, rows) => {
+    if (!rows || !rows.length) return;
+    ensure(10 + rows.length * 5.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(title, M, y); y += 2;
+    doc.setDrawColor(180); doc.line(M, y, PW - M, y); y += 5.5;
+    doc.setFont('helvetica', 'normal');
+    for (const [k, v] of rows) {
+      ensure(6); doc.setFontSize(10); doc.setTextColor(90); doc.text(k, M, y); doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold'); put(M + 62, y, v, 10); doc.setFont('helvetica', 'normal'); y += 5.5;
+    }
+    y += 3;
+  };
+  section('Échantillon', d.sample);
+  section('Comptage', d.counts);
+  section('Résultat', d.result);
+  section('Classes de colonies', d.classes);
+  section('Paramètres de détection', d.params);
+  if (d.serie && d.serie.length) {
+    ensure(20);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('Série de boîtes', M, y); y += 2;
+    doc.setDrawColor(180); doc.line(M, y, PW - M, y); y += 5.5;
+    const cx = [M, M + 62, M + 92, M + 125];
+    doc.setFontSize(9); doc.setTextColor(90);
+    ['Boîte', 'Colonies', 'Fraction', 'Résultat'].forEach((t, i) => doc.text(t, cx[i], y)); doc.setTextColor(0); y += 5;
+    doc.setFont('helvetica', 'normal');
+    for (const r of d.serie) {
+      ensure(6); doc.setFontSize(9);
+      doc.text(r.name, cx[0], y); doc.text(String(r.n), cx[1], y); doc.text(r.frac, cx[2], y); put(cx[3], y, r.C, 9);
+      if (!r.ok) { doc.setTextColor(150); doc.text('(hors plage)', cx[3] + 48, y); doc.setTextColor(0); }
+      y += 5;
+    }
+    y += 3;
+    section('Synthèse de la série', d.stats);
+  }
+  doc.setFontSize(8); doc.setTextColor(120);
+  doc.text(d.footer || '', M, PH - 8);
+  return doc.output('blob');
+}
+/*CORE_END*/
+
+
+const $ = id => document.getElementById(id);
+const MAXSIDE = 1400, TAU = Math.PI * 2;
+const PAL = ['#ff2d87', '#ffa31a', '#3ddc84', '#b388ff'];
+const cache = {};
+let W = 0, H = 0, hasImage = false, rgba = null, gray = null, grayId = 0;
+let plate = { cx: 0, cy: 0, r: 100 };
+let auto = [], visible = [], added = [], removed = [], hist = [];
+let excl = [], exclVer = 0, paint = null;
+let student = [], studentMode = false, cmp = null;
+let classInfo = null, classNames = [];
+let lastBin = null, lastBB = null, lastLim = null, tool = 'frame', sampleTruth = null;
+const imgCanvas = document.createElement('canvas');
+const maskCanvas = document.createElement('canvas');
+const stage = $('stage'), wrap = $('wrap');
+
+/* ---------- utilitaires ---------- */
+const SUP = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
+const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
+const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 6 });
+function sci(x) { const p = sciParts(x); return p ? p.m + ' × 10' + sup(p.e) : '0'; }
+let toastT;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200);
+}
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fr1 = v => (+v).toFixed(1).replace('.', ',');
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+const today = () => new Date().toLocaleDateString('fr-FR');
+
+(function () {
+  const s = $('dil');
+  for (let n = 0; n <= 9; n++) {
+    const o = document.createElement('option'); o.value = n;
+    o.textContent = n === 0 ? '10⁰ (suspension pure)' : '10' + sup(-n);
+    s.appendChild(o);
+  }
+})();
+
+/* ---------- lecture des réglages ---------- */
+const plateMm = () => Math.max(20, parseFloat($('plateMm').value) || 85);
+const pxPerMm = () => 2 * plate.r / plateMm();
+const fracVal = () => parseFloat($('frac').value) || 1;
+const fracLabel = f => f >= 1 ? '1' : '1/' + Math.round(1 / f);
+const isSolid = () => $('sSolid').checked;
+const unitName = () => isSolid() ? 'UFC/g' : 'UFC/mL';
+const rangeLH = () => $('range').value.split('-').map(Number);
+const volMl = () => {
+  const v = parseFloat(String($('vol').value).replace(',', '.'));
+  return $('volUnit').value === 'ul' ? v / 1000 : v;
+};
+const dilFactor = () => Math.pow(10, -(+$('dil').value));
+function solidK() {
+  if (!isSolid()) return 1;
+  const m = parseFloat($('mass').value), vd = parseFloat($('diluent').value);
+  return (m > 0 && vd >= 0) ? (m + vd) / m : NaN;
+}
+
+/* ---------- image ---------- */
+function computeGray() {
+  if (!rgba) return;
+  const ch = $('chan').value, n = W * H; gray = new Float32Array(n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const r = rgba[j], g = rgba[j + 1], b = rgba[j + 2];
+    gray[i] = ch === 'r' ? r : ch === 'g' ? g : ch === 'b' ? b : 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+  grayId++;
+}
+function suggestAuto() {
+  return suggest(gray, W, H, plate, $('margin').value * pxPerMm(), $('autoEdge').checked);
+}
+function finishImage(opts) {
+  opts = opts || {};
+  W = imgCanvas.width; H = imgCanvas.height;
+  rgba = imgCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+  stage.width = W; stage.height = H; maskCanvas.width = W; maskCanvas.height = H;
+  stage.hidden = false; $('empty').hidden = true; hasImage = true;
+  added = []; removed = []; hist = []; auto = []; visible = []; excl = []; exclVer++; student = []; cmp = null; classInfo = null;
+  computeGray();
+  let found = false;
+  if (opts.plate) plate = opts.plate;
+  else {
+    const dp = detectPlate(gray, W, H);
+    if (dp) { plate = { cx: dp.cx, cy: dp.cy, r: dp.r }; found = true; }
+    else plate = { cx: W / 2, cy: H / 2, r: 0.47 * Math.min(W, H) };
+  }
+  const pr = $('plateR'); pr.max = Math.round(0.8 * Math.max(W, H)); pr.value = Math.round(plate.r);
+  if (!opts.keep) {
+    const s = suggestAuto(); $('thr').value = s.thr;
+    $(s.light ? 'polLight' : 'polDark').checked = true;
+    $('preset').value = 'auto';
+  }
+  syncOutputs(); applyZoom(); runDetect(); setHint();
+  $('pngBtn').disabled = false; $('saveSession').disabled = false; updatePdfBtn();
+  return found;
+}
+function setImage(src) {
+  const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+  const k = Math.min(1, MAXSIDE / Math.max(sw, sh));
+  imgCanvas.width = Math.round(sw * k); imgCanvas.height = Math.round(sh * k);
+  imgCanvas.getContext('2d').drawImage(src, 0, 0, imgCanvas.width, imgCanvas.height);
+  sampleTruth = null;
+  const found = finishImage();
+  toast(found ? 'Boîte détectée automatiquement : vérifiez le cadre.' : 'Boîte non détectée : placez le cadre à la main.');
+}
+function loadFile(file) {
+  if (!file) return;
+  if (/\.json$/i.test(file.name) || file.type === 'application/json') { loadSessionFile(file); return; }
+  if (!file.type.startsWith('image/')) { toast('Ce fichier n\'est pas une image.'); return; }
+  const url = URL.createObjectURL(file), im = new Image();
+  im.onload = () => { setImage(im); URL.revokeObjectURL(url); };
+  im.onerror = () => { toast('Image illisible.'); URL.revokeObjectURL(url); };
+  im.src = url;
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function genSample() {
+  const S = 1200; imgCanvas.width = S; imgCanvas.height = S;
+  const c = imgCanvas.getContext('2d'), rnd = mulberry(20261003);
+  c.fillStyle = '#0f1417'; c.fillRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2, R = 560;
+  c.beginPath(); c.arc(cx, cy, R + 14, 0, 7); c.fillStyle = '#2a3236'; c.fill();
+  const g = c.createRadialGradient(cx - 90, cy - 70, 60, cx, cy, R);
+  g.addColorStop(0, '#e2cd8c'); g.addColorStop(1, '#c9ae68');
+  c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fillStyle = g; c.fill();
+  const cols = []; let n = 0, tries = 0;
+  const draw = (x, y, r) => {
+    c.beginPath(); c.arc(x + 1.5, y + 2, r + 1, 0, 7); c.fillStyle = 'rgba(95,72,20,.35)'; c.fill();
+    const q = c.createRadialGradient(x - r * .3, y - r * .3, r * .1, x, y, r);
+    q.addColorStop(0, '#fbf7ea'); q.addColorStop(1, '#eadfbf');
+    c.beginPath(); c.arc(x, y, r, 0, 7); c.fillStyle = q; c.fill();
+    cols.push([x, y, r]); n++;
+  };
+  while (n < 150 && tries++ < 30000) {
+    const a = rnd() * 6.283, d = Math.sqrt(rnd()) * (R - 70), x = cx + d * Math.cos(a), y = cy + d * Math.sin(a), r = 5 + rnd() * 7;
+    if (cols.some(k => Math.hypot(k[0] - x, k[1] - y) < k[2] + r + 5)) continue;
+    draw(x, y, r);
+    if (rnd() < 0.25 && n < 150) {
+      const a2 = rnd() * 6.283, r2 = r * (0.8 + rnd() * 0.4), dd = (r + r2) * (0.85 + rnd() * 0.25);
+      const x2 = x + dd * Math.cos(a2), y2 = y + dd * Math.sin(a2);
+      if (Math.hypot(x2 - cx, y2 - cy) < R - 60 && !cols.some(k => k[0] !== x && Math.hypot(k[0] - x2, k[1] - y2) < k[2] + r2 + 3)) draw(x2, y2, r2);
+    }
+  }
+  c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.clip();
+  for (let i = 0; i < 26000; i++) {
+    c.fillStyle = rnd() < .5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.05)';
+    c.fillRect(rnd() * S, rnd() * S, 2, 2);
+  }
+  c.restore();
+  sampleTruth = n;
+  finishImage({ plate: { cx, cy, r: R - 8 } });
+  toast('Boîte simulée : ' + n + ' colonies générées par ordinateur.');
+}
+function autoPlate() {
+  if (!hasImage) return;
+  const dp = detectPlate(gray, W, H);
+  if (!dp) { toast('Boîte non détectée : placez le cadre à la main.'); return; }
+  plate = { cx: dp.cx, cy: dp.cy, r: dp.r };
+  $('plateR').value = Math.round(plate.r); syncOutputs(); draw(); scheduleDetect();
+  toast('Boîte détectée : vérifiez le cadre.');
+}
+
+/* ---------- paramètres et détection ---------- */
+function sectorObj() {
+  const f = fracVal(); if (f >= 1) return null;
+  return { a0: (+$('ang').value) * Math.PI / 180, span: TAU * f };
+}
+function params() {
+  const pxmm = pxPerMm(), maxDpx = $('maxD').value * pxmm, s = +$('split').value;
+  return {
+    light: $('polLight').checked, thr: +$('thr').value,
+    minDpx: $('minD').value * pxmm, maxDpx,
+    marginPx: $('margin').value * pxmm,
+    bgRadiusPx: Math.min(plate.r * 0.5, maxDpx * 1.2),
+    ratio: s > 0 ? 0.5 + s * 0.0045 : 0, grayId,
+    sector: sectorObj(), excl, exclVer, autoEdge: $('autoEdge').checked
+  };
+}
+let detT;
+function scheduleDetect() { clearTimeout(detT); detT = setTimeout(runDetect, 90); }
+function runDetect() {
+  if (!hasImage) return;
+  const res = detect(gray, W, H, plate, params(), cache);
+  auto = res.colonies; lastBin = res.bin; lastBB = res.bb; lastLim = res.lim;
+  refreshVisible();
+  if ($('showMask').checked) buildMask();
+  refresh();
+}
+function refreshVisible() {
+  visible = auto.filter(a => !removed.some(r => Math.hypot(a.x - r.x, a.y - r.y) < Math.max(6, r.r || 0)));
+}
+function buildMask() {
+  const c = maskCanvas.getContext('2d'), id = c.createImageData(W, H), d = id.data, bb = lastBB;
+  for (let y = bb.y0; y < bb.y1; y++) for (let x = bb.x0; x < bb.x1; x++) {
+    const i = y * W + x; if (lastBin[i]) { const j = i * 4; d[j] = 47; d[j + 1] = 196; d[j + 2] = 255; d[j + 3] = 120; }
+  }
+  c.putImageData(id, 0, 0);
+}
+function syncOutputs() {
+  $('thrV').textContent = $('thr').value + ' niveaux';
+  $('minDV').textContent = fr1($('minD').value) + ' mm';
+  $('maxDV').textContent = fr1($('maxD').value) + ' mm';
+  $('marginV').textContent = fr1($('margin').value) + ' mm';
+  const s = +$('split').value;
+  $('splitV').textContent = s === 0 ? 'désactivée' : s + ' %';
+  $('plateRV').textContent = hasImage ? Math.round(plate.r * 2 / pxPerMm()) + ' mm = ' + Math.round(plate.r * 2) + ' px' : '';
+  $('angV').textContent = $('ang').value + '°';
+  $('brushV').textContent = fr1($('brush').value) + ' mm';
+}
+const PRESETS = { clair: { pol: 'light', chan: 'lum' }, sang: { pol: 'light', chan: 'g' }, sombre: { pol: 'dark', chan: 'g' } };
+function applyPreset() {
+  const v = $('preset').value, p = PRESETS[v];
+  if (p) { $('chan').value = p.chan; $(p.pol === 'light' ? 'polLight' : 'polDark').checked = true; $('minD').value = 0.5; $('maxD').value = 8; }
+  if (hasImage) {
+    computeGray(); const s = suggestAuto(); $('thr').value = s.thr;
+    if (!p) $(s.light ? 'polLight' : 'polDark').checked = true;
+  }
+  syncOutputs(); scheduleDetect();
+}
+
+/* ---------- repères, classes ---------- */
+function curMarkers() {
+  if (studentMode) return student.map(o => ({ o, kind: 's' }));
+  return visible.map(o => ({ o, kind: 'a' })).concat(added.map(o => ({ o, kind: 'm' })));
+}
+const count = () => studentMode ? student.length : visible.length + added.length;
+function meanRGB(o) {
+  const rad = Math.max(1.5, o.r * 0.6), x0 = Math.max(0, Math.floor(o.x - rad)), x1 = Math.min(W - 1, Math.ceil(o.x + rad));
+  const y0 = Math.max(0, Math.floor(o.y - rad)), y1 = Math.min(H - 1, Math.ceil(o.y + rad));
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (Math.hypot(x - o.x, y - o.y) > rad) continue;
+    const j = (y * W + x) * 4; r += rgba[j]; g += rgba[j + 1]; b += rgba[j + 2]; n++;
+  }
+  return n ? [r / n, g / n, b / n] : [128, 128, 128];
+}
+function classify() {
+  classInfo = null;
+  const mode = $('classMode').value;
+  curMarkers().forEach(m => { m.o._cls = undefined; });
+  if (mode === 'none' || !hasImage) return;
+  const ms = curMarkers().map(x => x.o);
+  if (ms.length < 2) return;
+  const k = Math.min(+$('classK').value, ms.length), pxmm = pxPerMm();
+  const feats = ms.map(o => mode === 'size' ? [2 * o.r / pxmm] : meanRGB(o));
+  const km = kmeans(feats, k, 25);
+  const key = km.centers.map((c, i) => ({ i, v: mode === 'size' ? c[0] : -(0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) }));
+  key.sort((a, b) => a.v - b.v);
+  const rank = []; key.forEach((e, j) => { rank[e.i] = j; });
+  const counts = new Array(km.centers.length).fill(0);
+  ms.forEach((o, j) => { o._cls = rank[km.labels[j]]; counts[o._cls]++; });
+  classInfo = { k: km.centers.length, centers: key.map(e => km.centers[e.i]), counts, mode };
+}
+function className(i) {
+  if (classNames[i]) return classNames[i];
+  if (classInfo && classInfo.mode === 'size') {
+    const k = classInfo.k;
+    const t = k === 2 ? ['Petites', 'Grandes'] : k === 3 ? ['Petites', 'Moyennes', 'Grandes'] : ['Très petites', 'Petites', 'Moyennes', 'Grandes'];
+    return t[i];
+  }
+  return 'Classe ' + (i + 1);
+}
+
+/* ---------- affichage ---------- */
+function dispScale() { const r = stage.getBoundingClientRect(); return r.width ? r.width / W : 1; }
+function applyZoom() {
+  if (!hasImage) return;
+  const z = $('zoom').value; let w;
+  if (z === 'fit') { const k = Math.min((wrap.clientWidth - 4) / W, (wrap.clientHeight - 4) / H); w = W * k; }
+  else w = W * parseFloat(z);
+  stage.style.width = w + 'px'; stage.style.height = (w * H / W) + 'px';
+  draw();
+}
+function ring(c, x, y, r, col, lw) {
+  c.beginPath(); c.arc(x + 0.5, y + 0.5, r, 0, 7); c.strokeStyle = col; c.lineWidth = lw; c.stroke();
+}
+function draw() {
+  if (!hasImage) return;
+  const c = stage.getContext('2d'), s = dispScale(), lw = Math.max(1.5, 2.2 / s);
+  c.drawImage(imgCanvas, 0, 0);
+  if ($('showMask').checked) c.drawImage(maskCanvas, 0, 0);
+  const sec = sectorObj();
+  if (sec) {
+    c.save(); c.beginPath(); c.arc(plate.cx, plate.cy, plate.r, 0, TAU);
+    c.moveTo(plate.cx, plate.cy); c.arc(plate.cx, plate.cy, plate.r, sec.a0, sec.a0 + sec.span); c.closePath();
+    c.fillStyle = 'rgba(0,0,0,.5)'; c.fill('evenodd'); c.restore();
+  }
+  if (excl.length) {
+    c.save(); c.beginPath();
+    for (const e of excl) { c.moveTo(e.x + e.r, e.y); c.arc(e.x, e.y, e.r, 0, TAU); }
+    c.fillStyle = 'rgba(255,70,70,.38)'; c.fill(); c.restore();
+  }
+  c.save(); c.setLineDash([10 / s, 6 / s]);
+  ring(c, plate.cx - .5, plate.cy - .5, plate.r, '#2fd0dc', lw * 1.3);
+  if (sec) {
+    c.beginPath(); c.moveTo(plate.cx, plate.cy); c.lineTo(plate.cx + plate.r * Math.cos(sec.a0), plate.cy + plate.r * Math.sin(sec.a0));
+    c.moveTo(plate.cx, plate.cy); c.lineTo(plate.cx + plate.r * Math.cos(sec.a0 + sec.span), plate.cy + plate.r * Math.sin(sec.a0 + sec.span));
+    c.strokeStyle = '#2fd0dc'; c.lineWidth = lw; c.stroke();
+  }
+  c.restore();
+  if (lastLim && $('autoEdge').checked) {
+    c.save(); c.beginPath();
+    lastLim.forEach((l, b) => { const a = (b + 0.5) / lastLim.length * TAU, x = plate.cx + l * Math.cos(a), y = plate.cy + l * Math.sin(a); b ? c.lineTo(x, y) : c.moveTo(x, y); });
+    c.closePath(); c.strokeStyle = '#ffb300'; c.lineWidth = lw * 1.2; c.stroke(); c.restore();
+  }
+  const arm = Math.max(10, 14 / s);
+  c.beginPath(); c.moveTo(plate.cx - arm, plate.cy); c.lineTo(plate.cx + arm, plate.cy);
+  c.moveTo(plate.cx, plate.cy - arm); c.lineTo(plate.cx, plate.cy + arm);
+  c.strokeStyle = '#2fd0dc'; c.lineWidth = lw * 1.3; c.stroke();
+  if (!$('showMarks').checked) return;
+  const R = o => Math.max(o.r * 1.3, 4 / s);
+  if (studentMode) {
+    if (cmp) {
+      for (const a of cmp.missed) ring(c, a.x, a.y, R(a), '#ffa31a', lw * 1.2);
+      for (const o of student) {
+        if (o._m) ring(c, o.x, o.y, R(o), '#3ddc84', lw);
+        else {
+          const q = R(o); ring(c, o.x, o.y, q, '#ffd400', lw * 1.2);
+          c.beginPath(); c.moveTo(o.x - q * .6, o.y - q * .6); c.lineTo(o.x + q * .6, o.y + q * .6);
+          c.moveTo(o.x + q * .6, o.y - q * .6); c.lineTo(o.x - q * .6, o.y + q * .6);
+          c.strokeStyle = '#ffd400'; c.lineWidth = lw; c.stroke();
+        }
+      }
+    } else for (const o of student) ring(c, o.x, o.y, R(o), '#2fc4ff', lw * 1.2);
+    return;
+  }
+  for (const a of visible) ring(c, a.x, a.y, R(a), a._cls !== undefined ? PAL[a._cls] : '#ff2d87', lw);
+  for (const m of added) ring(c, m.x, m.y, R(m), m._cls !== undefined ? PAL[m._cls] : '#2fc4ff', lw * 1.6);
+}
+function renderLegend() {
+  const items = [];
+  if (studentMode) {
+    if (cmp) items.push(['dot', '#3ddc84', 'Comptée par l\'élève et détectée'], ['dot', '#ffd400', 'Comptée par l\'élève seulement'], ['dot', '#ffa31a', 'Détectée seulement (oubliée)']);
+    else items.push(['dot', '#2fc4ff', 'Colonie comptée par l\'élève']);
+  } else if (classInfo) {
+    for (let i = 0; i < classInfo.k; i++) items.push(['dot', PAL[i], className(i)]);
+    items.push(['dot', '#ffffff', 'Trait épais : ajoutée à la main']);
+  } else items.push(['dot', '#ff2d87', 'Colonie détectée'], ['dot', '#2fc4ff', 'Colonie ajoutée à la main']);
+  items.push(['dash', '', 'Cadre de la boîte']);
+  if ($('autoEdge').checked && lastLim) items.push(['dash2', '', 'Limite du comptage (bord exclu)']);
+  if (excl.length) items.push(['sq', '', 'Zone exclue']);
+  const ul = $('legend'); ul.textContent = '';
+  for (const [k, col, txt] of items) {
+    const li = document.createElement('li'), sp = document.createElement('span');
+    sp.className = k; if (k === 'dot') sp.style.borderColor = col;
+    li.append(sp, document.createTextNode(txt)); ul.appendChild(li);
+  }
+}
+function setHint() {
+  let t = '';
+  if (hasImage) {
+    if (tool === 'frame') t = 'Cliquez sur une colonie pour l\'ajouter, ou sur un repère rose pour le retirer. Pour placer le cercle bleu sur la boîte, faites-le glisser ; tirez son bord pour l\'agrandir ou le réduire.';
+    else if (tool === 'edit') t = 'Cliquez sur une colonie pour l\'ajouter, ou sur un repère pour le retirer. Ctrl+Z annule le dernier clic.';
+    else t = 'Passez le pinceau sur les reflets, étiquettes ou bulles à ignorer. « Annuler » retire le dernier tracé.';
+    if (studentMode) t = 'Mode élève : la détection est masquée. Cliquez sur chaque colonie pour la compter, puis « Comparer avec la détection ».';
+    if (sampleTruth) t += ' La boîte simulée contient ' + sampleTruth + ' colonies.';
+  }
+  $('hint').textContent = t;
+}
+
+/* ---------- résultats ---------- */
+function concCalc(n) {
+  const v = volMl(); if (!(v > 0)) return NaN;
+  const nEst = n / fracVal(), k = solidK();
+  return isFinite(k) ? nEst / (v * dilFactor()) * k : NaN;
+}
+function status(n) {
+  const [lo, hi] = rangeLH();
+  if (n < lo) return ['warn', 'Moins de ' + lo + ' colonies : estimation peu précise'];
+  if (n > hi) return ['bad', 'Plus de ' + hi + ' colonies : diluer davantage ou compter par secteur'];
+  return ['ok', 'Boîte comptable (' + lo + ' à ' + hi + ' colonies)'];
+}
+function updateResults() {
+  const n = count(), f = fracVal(), nEst = n / f, unit = unitName();
+  $('count').textContent = n;
+  $('breakdown').textContent = !hasImage ? 'Aucune image chargée.'
+    : studentMode ? 'Comptage de l\'élève' + (cmp ? ' comparé à la détection' : '')
+    : visible.length + ' détectées, ' + added.length + ' ajoutées, ' + removed.length + ' retirées';
+  $('estLine').textContent = hasImage && f < 1 ? 'Secteur ' + fracLabel(f) + ' : environ ' + nf.format(Math.round(nEst)) + ' colonies sur la boîte entière' : '';
+  const C = concCalc(n), box = $('validity');
+  $('susp').textContent = '';
+  if (!hasImage) { $('conc').textContent = '—'; $('concU').textContent = ''; $('ic').textContent = ''; box.textContent = ''; }
+  else {
+    if (!isFinite(C)) {
+      $('conc').textContent = '—'; $('concU').textContent = ''; $('ic').textContent = isSolid() && !isFinite(solidK()) ? 'Indiquez la masse et le diluant.' : 'Indiquez le volume ensemencé.';
+    } else {
+      $('conc').textContent = sci(C); $('concU').textContent = unit;
+      const d = 1.96 * Math.sqrt(n);
+      $('ic').textContent = n > 0 ? 'Intervalle à 95 % (loi de Poisson, approché) : de ' + sci(C * Math.max(0, n - d) / n) + ' à ' + sci(C * (n + d) / n) + ' ' + unit : '';
+      if (isSolid()) $('susp').textContent = 'Suspension mère : ' + sci(C / solidK()) + ' UFC/mL';
+    }
+    const [cls, txt] = status(n); box.className = 'badge ' + cls; box.textContent = txt;
+  }
+  renderClassBox(C, n); renderCmpBox(); drawHist();
+  $('undoBtn').disabled = hist.length === 0;
+  $('clearExcl').disabled = excl.length === 0;
+  $('pdfBtn').disabled = !hasImage || !(window.jspdf && window.jspdf.jsPDF);
+}
+function renderClassBox(C, n) {
+  const b = $('classBox');
+  if (!classInfo) { b.hidden = true; b.textContent = ''; return; }
+  b.hidden = false;
+  const typing = b.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
+  if (!typing) {
+    b.textContent = '';
+    for (let i = 0; i < classInfo.k; i++) {
+      const row = document.createElement('div'); row.className = 'cls';
+      const chip = document.createElement('span'); chip.className = 'chip'; chip.style.borderColor = PAL[i];
+      if (classInfo.mode === 'color') { const c = classInfo.centers[i]; chip.style.background = 'rgb(' + c.map(Math.round).join(',') + ')'; }
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = className(i); inp.setAttribute('aria-label', 'Nom de la classe ' + (i + 1));
+      inp.addEventListener('change', () => { classNames[i] = inp.value; renderLegend(); });
+      const nn = document.createElement('span'); nn.className = 'n'; nn.id = 'cn' + i;
+      row.append(chip, inp, nn); b.appendChild(row);
+    }
+  }
+  for (let i = 0; i < classInfo.k; i++) {
+    const el = $('cn' + i); if (!el) continue;
+    const ci = classInfo.counts[i];
+    el.textContent = ci + ' · ' + (isFinite(C) && n > 0 ? sci(C * ci / n) + ' ' + unitName() : '');
+  }
+}
+function renderCmpBox() {
+  const b = $('cmpBox');
+  if (!studentMode || !cmp) { b.hidden = true; b.textContent = ''; return; }
+  b.hidden = false; b.textContent = '';
+  const line = (t, v) => { const p = document.createElement('div'); p.append(t + ' : '); const s = document.createElement('strong'); s.textContent = v; p.appendChild(s); b.appendChild(p); };
+  line('Comptage de l\'élève', cmp.student); line('Détection automatique', cmp.auto);
+  line('Colonies communes', cmp.ok); line('Oubliées par l\'élève', cmp.missed.length); line('Comptées en trop par l\'élève', cmp.extra);
+  const pct = cmp.auto ? Math.round(100 * cmp.ok / cmp.auto) : 0;
+  line('Taux de concordance', pct + ' %');
+}
+function drawHist() {
+  const cv = $('hist'), c = cv.getContext('2d'), w = cv.width, h = cv.height;
+  c.clearRect(0, 0, w, h);
+  const ms = hasImage ? curMarkers().map(x => x.o) : [];
+  if (!ms.length) { $('histInfo').textContent = 'Aucune colonie.'; return; }
+  const pxmm = pxPerMm(), d = ms.map(o => 2 * o.r / pxmm).sort((a, b) => a - b);
+  const lo = Math.floor(d[0] * 4) / 4, hi = Math.max(lo + 0.5, Math.ceil(d[d.length - 1] * 4) / 4);
+  const nb = Math.max(2, Math.round((hi - lo) / 0.25)), bins = new Array(nb).fill(0);
+  d.forEach(v => { bins[Math.min(nb - 1, Math.floor((v - lo) / (hi - lo) * nb))]++; });
+  const mx = Math.max(...bins), st = getComputedStyle(document.documentElement);
+  const accent = st.getPropertyValue('--accent').trim() || '#0e7c86', ink = st.getPropertyValue('--ink-2').trim() || '#666';
+  const padB = 18, bw = w / nb;
+  c.fillStyle = accent;
+  bins.forEach((v, i) => { const bh = (h - padB - 4) * v / mx; c.fillRect(i * bw + 1, h - padB - bh, Math.max(1, bw - 2), bh); });
+  c.fillStyle = ink; c.font = '12px "Atkinson Hyperlegible",system-ui,sans-serif';
+  c.textAlign = 'left'; c.fillText(fr1(lo) + ' mm', 0, h - 4);
+  c.textAlign = 'right'; c.fillText(fr1(hi) + ' mm', w, h - 4);
+  const med = d[d.length >> 1];
+  $('histInfo').textContent = 'Diamètre médian ' + fr1(med) + ' mm, de ' + fr1(d[0]) + ' à ' + fr1(d[d.length - 1]) + ' mm (' + d.length + ' colonies).';
+}
+function refresh() { classify(); draw(); updateResults(); renderLegend(); }
+
+/* ---------- mode élève ---------- */
+function compareStudent() {
+  const used = new Set(); let ok = 0;
+  student.forEach(s => {
+    let bi = -1, bd = Infinity;
+    visible.forEach((a, i) => {
+      if (used.has(i)) return;
+      const d = Math.hypot(a.x - s.x, a.y - s.y);
+      if (d < Math.max(a.r * 1.6, 8) && d < bd) { bd = d; bi = i; }
+    });
+    if (bi >= 0) { used.add(bi); ok++; s._m = true; } else s._m = false;
+  });
+  cmp = { student: student.length, auto: visible.length, ok, missed: visible.filter((a, i) => !used.has(i)), extra: student.length - ok };
+}
+
+/* ---------- série ---------- */
+let serie = load('cc.serie', []);
+function rowOk(r) { const [lo, hi] = rangeLH(); return r.n >= lo && r.n <= hi; }
+function renderSerie() {
+  const body = $('serieBody'); body.textContent = '';
+  $('serieTable').hidden = serie.length === 0; $('serieEmpty').hidden = serie.length > 0;
+  serie.forEach((r, i) => {
+    const tr = document.createElement('tr'); if (!rowOk(r)) tr.className = 'low';
+    const a = document.createElement('td');
+    a.textContent = (r.name ? r.name : 'Boîte ' + (i + 1)) + ' · 10' + sup(-r.dil) + ', ' + nf.format(r.vul) + ' µL' + (r.frac < 1 ? ' · ' + fracLabel(r.frac) : '');
+    const b = document.createElement('td'); b.className = 'num'; b.textContent = r.n;
+    const c = document.createElement('td'); c.className = 'num'; c.textContent = sci(r.C) + ' ' + (r.unit || 'UFC/mL');
+    const d = document.createElement('td'); const x = document.createElement('button');
+    x.className = 'x'; x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Retirer la boîte ' + (i + 1));
+    x.onclick = () => { serie.splice(i, 1); saveSerie(); renderSerie(); };
+    d.appendChild(x); tr.append(a, b, c, d); body.appendChild(tr);
+  });
+  const st = $('stats'); st.textContent = '';
+  const ok = serie.filter(rowOk);
+  if (serie.length) {
+    const line = (t, v) => { const p = document.createElement('div'); p.append(t + ' : '); const s = document.createElement('strong'); s.textContent = v; p.appendChild(s); st.appendChild(p); };
+    if (ok.length) {
+      const m = ok.reduce((s, r) => s + r.C, 0) / ok.length, u = ok[0].unit || 'UFC/mL';
+      line('Moyenne simple (' + ok.length + ' boîte' + (ok.length > 1 ? 's' : '') + ')', sci(m) + ' ' + u);
+      if (ok.length > 1) {
+        const sd = Math.sqrt(ok.reduce((s, r) => s + (r.C - m) ** 2, 0) / (ok.length - 1));
+        line('Écart-type', sci(sd) + ' ' + u + ' (' + Math.round(100 * sd / m) + ' %)');
+      }
+      const pw = pooled(ok);
+      if (pw) line('Moyenne pondérée (ISO 7218)', sci(pw) + ' ' + u);
+    } else {
+      const p = document.createElement('div'); p.className = 'muted'; p.textContent = 'Aucune boîte comptable dans la série (plage ' + rangeLH().join(' à ') + ').'; st.appendChild(p);
+    }
+  }
+  $('csvBtn').disabled = $('clearSerie').disabled = serie.length === 0;
+}
+/* Σ colonies ÷ Σ (volume × dilution) : équivaut à ΣC / (V·(n1 + 0,1·n2)·d1) pour deux dilutions successives */
+function pooled(rows) {
+  const k0 = rows[0].k || 1, same = rows.filter(r => Math.abs((r.k || 1) - k0) < 1e-9 && (r.unit || 'UFC/mL') === (rows[0].unit || 'UFC/mL'));
+  if (same.length < 2) return null;
+  let sn = 0, sv = 0;
+  same.forEach(r => { sn += r.nEst; sv += (r.vul / 1000) * Math.pow(10, -r.dil); });
+  return sv > 0 ? sn / sv * k0 : null;
+}
+function saveSerie() { store('cc.serie', serie); }
+$('addBtn').onclick = () => {
+  if (!hasImage) { toast('Ouvrez d\'abord une photo.'); return; }
+  const C = concCalc(count());
+  if (!isFinite(C)) { toast('Complétez le volume (et la masse pour un solide).'); return; }
+  const f = fracVal();
+  serie.push({ name: $('sname').value.trim(), op: $('oper').value.trim(), date: today(), n: count(), nEst: count() / f, frac: f,
+    dil: +$('dil').value, vul: volMl() * 1000, C, unit: unitName(), k: solidK() });
+  saveSerie(); renderSerie(); toast('Boîte ajoutée à la série.');
+};
+$('clearSerie').onclick = () => { serie = []; saveSerie(); renderSerie(); };
+
+/* ---------- exports ---------- */
+async function saveFile(name, blob) {
+  let dl = null;
+  try { dl = window.claude && await window.claude.use('downloads'); } catch (e) { dl = null; }
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); toast('Fichier enregistré.'); }
+    catch (e) { if (!e || e.code !== 'declined') toast('Enregistrement impossible.'); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$('csvBtn').onclick = () => {
+  const f = x => String(x).replace('.', ',');
+  const rows = [['Échantillon', 'Opérateur', 'Date', 'Dilution', 'Volume (mL)', 'Colonies comptées', 'Fraction comptée', 'Colonies estimées', 'Résultat', 'Unité', 'Boîte comptable']];
+  serie.forEach(r => rows.push([r.name || '', r.op || '', r.date || '', '1e-' + r.dil, f(r.vul / 1000), r.n, fracLabel(r.frac), f(Math.round(r.nEst)), f(r.C.toExponential(1)), r.unit || 'UFC/mL', rowOk(r) ? 'oui' : 'non']));
+  const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\r\n');
+  saveFile('serie-colonies.csv', new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+};
+$('pngBtn').onclick = () => {
+  if (!hasImage) return;
+  draw(); stage.toBlob(b => { if (b) saveFile('boite-annotee.png', b); else toast('Export impossible.'); }, 'image/png');
+};
+function updatePdfBtn() { $('pdfBtn').disabled = !hasImage || !(window.jspdf && window.jspdf.jsPDF); }
+$('pdfBtn').onclick = async () => {
+  if (!(window.jspdf && window.jspdf.jsPDF)) { toast('Le module PDF n\'est pas chargé (connexion internet requise).'); return; }
+  draw();
+  const n = count(), f = fracVal(), C = concCalc(n), unit = unitName(), d = 1.96 * Math.sqrt(n);
+  const P = (x, u) => { const p = sciParts(x); return p ? { m: p.m, e: p.e, unit: u } : '0'; };
+  const presetTxt = $('preset').selectedOptions[0].textContent;
+  const [lo, hi] = rangeLH(), st = status(n)[1];
+  const data = {
+    title: 'Compteur de colonies : rapport', subtitle: 'Édité le ' + today(),
+    image: stage.toDataURL('image/jpeg', 0.88), imgW: W, imgH: H,
+    sample: [['Échantillon', $('sname').value.trim() || '-'], ['Opérateur', $('oper').value.trim() || '-'], ['Date', today()]],
+    counts: studentMode ? [['Comptage de l\'élève', String(n)]] : [['Colonies détectées', String(visible.length)], ['Ajoutées à la main', String(added.length)], ['Retirées', String(removed.length)], ['Total compté', String(n)]]
+      .concat(f < 1 ? [['Fraction comptée', fracLabel(f)], ['Estimation pour la boîte entière', nf.format(Math.round(n / f))]] : []),
+    result: [['Volume ensemencé', nf.format(volMl() * 1000) + ' µL'], ['Dilution', '10^-' + $('dil').value],
+      ['Type d\'échantillon', isSolid() ? 'Solide (' + $('mass').value + ' g dans ' + $('diluent').value + ' mL)' : 'Liquide'],
+      ['Concentration', isFinite(C) ? P(C, unit) : '-']]
+      .concat(isFinite(C) && n > 0 ? [['Borne basse (IC 95 %, approché)', P(C * Math.max(0, n - d) / n, unit)], ['Borne haute (IC 95 %, approché)', P(C * (n + d) / n, unit)]] : [])
+      .concat([['Validité', st]]),
+    classes: classInfo ? classInfo.counts.map((ci, i) => [className(i) + ' (' + ci + ')', isFinite(C) && n > 0 ? P(C * ci / n, unit) : '-']) : [],
+    params: [['Type de milieu', presetTxt], ['Colonies', $('polLight').checked ? 'claires' : 'sombres'], ['Canal', $('chan').selectedOptions[0].textContent], ['Contraste minimal', $('thr').value],
+      ['Diamètres min. / max.', fr1($('minD').value) + ' / ' + fr1($('maxD').value) + ' mm'], ['Séparation des accolées', $('split').value], ['Marge au bord', fr1($('margin').value) + ' mm'],
+      ['Diamètre de la boîte', plateMm() + ' mm'], ['Plage comptable', lo + ' à ' + hi]],
+    serie: serie.map((r, i) => ({ name: (r.name || 'Boîte ' + (i + 1)) + ', 10^-' + r.dil + ', ' + nf.format(r.vul) + ' µL', n: r.n, frac: fracLabel(r.frac), C: P(r.C, r.unit || 'UFC/mL'), ok: rowOk(r) })),
+    stats: [], footer: 'Compteur de colonies : les résultats dépendent de la qualité de la photo et des corrections manuelles.'
+  };
+  const ok = serie.filter(rowOk);
+  if (ok.length) {
+    const m = ok.reduce((s, r) => s + r.C, 0) / ok.length, u = ok[0].unit || 'UFC/mL';
+    data.stats.push(['Moyenne simple (' + ok.length + ')', P(m, u)]);
+    const pw = pooled(ok); if (pw) data.stats.push(['Moyenne pondérée (ISO 7218)', P(pw, u)]);
+  }
+  try { saveFile('rapport-colonies.pdf', buildReport(window.jspdf.jsPDF, data)); }
+  catch (e) { toast('Génération du PDF impossible.'); }
+};
+
+/* ---------- session ---------- */
+const CTRL = ['thr', 'minD', 'maxD', 'split', 'margin', 'plateMm', 'chan', 'preset', 'frac', 'ang', 'classMode', 'classK', 'brush', 'vol', 'volUnit', 'dil', 'mass', 'diluent', 'range', 'sname', 'oper'];
+function getCtrl() {
+  const o = {}; CTRL.forEach(id => { o[id] = $(id).value; });
+  o.autoEdge = $('autoEdge').checked; o.polar = $('polLight').checked ? 'light' : 'dark'; o.sType = isSolid() ? 'solid' : 'liquid';
+  return o;
+}
+function setCtrl(o) {
+  CTRL.forEach(id => { if (o[id] !== undefined && $(id)) $(id).value = o[id]; });
+  if (o.autoEdge !== undefined) $('autoEdge').checked = !!o.autoEdge;
+  $(o.polar === 'dark' ? 'polDark' : 'polLight').checked = true;
+  $(o.sType === 'solid' ? 'sSolid' : 'sLiquid').checked = true;
+  updateSolid();
+}
+$('saveSession').onclick = () => {
+  if (!hasImage) return;
+  const s = { v: 1, app: 'compteur-colonies', img: imgCanvas.toDataURL('image/jpeg', 0.9), plate, ctrl: getCtrl(), removed, added: added.map(m => ({ x: m.x, y: m.y, r: m.r })),
+    excl, student: student.map(m => ({ x: m.x, y: m.y, r: m.r })), studentMode, classNames };
+  saveFile('session-colonies.json', new Blob([JSON.stringify(s)], { type: 'application/json' }));
+};
+function loadSessionFile(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    let s; try { s = JSON.parse(fr.result); } catch (e) { toast('Session illisible.'); return; }
+    if (!s || s.app !== 'compteur-colonies' || !s.img || !s.plate) { toast('Ce fichier n\'est pas une session du compteur.'); return; }
+    const im = new Image();
+    im.onload = () => {
+      imgCanvas.width = im.naturalWidth; imgCanvas.height = im.naturalHeight;
+      imgCanvas.getContext('2d').drawImage(im, 0, 0);
+      setCtrl(s.ctrl || {});
+      sampleTruth = null; finishImage({ plate: s.plate, keep: true });
+      removed = s.removed || []; added = s.added || []; excl = s.excl || []; exclVer++; student = s.student || []; classNames = s.classNames || [];
+      $('studentMode').checked = !!s.studentMode; studentMode = !!s.studentMode; $('cmpBtn').hidden = !studentMode;
+      $('plateR').value = Math.round(plate.r); syncOutputs(); runDetect(); setHint(); toast('Session restaurée.');
+    };
+    im.onerror = () => toast('Image de la session illisible.');
+    im.src = s.img;
+  };
+  fr.readAsText(file);
+}
+
+/* ---------- interactions sur l'image ---------- */
+function toImg(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+let drag = null, suppressClick = false;
+function overRim(p) {
+  const s = dispScale();
+  return Math.abs(Math.hypot(p.x - plate.cx, p.y - plate.cy) - plate.r) < Math.max(12, 18 / s);
+}
+function addExcl(p) { const e = { x: p.x, y: p.y, r: Math.max(2, $('brush').value * pxPerMm()) }; excl.push(e); paint.items.push(e); paint.last = p; }
+stage.addEventListener('pointerdown', e => {
+  if (!hasImage || e.button > 0 || (e.pointerType === 'touch' && tool === 'edit')) return;
+  const p = toImg(e);
+  if (tool === 'excl') { paint = { items: [], last: null }; addExcl(p); stage.setPointerCapture(e.pointerId); e.preventDefault(); draw(); return; }
+  drag = { rim: overRim(p), ox: p.x - plate.cx, oy: p.y - plate.cy, sx: e.clientX, sy: e.clientY, active: false };
+  stage.setPointerCapture(e.pointerId);
+  if (tool === 'frame') e.preventDefault();
+});
+stage.addEventListener('pointermove', e => {
+  if (!hasImage) return;
+  const p = toImg(e);
+  if (paint) {
+    const step = Math.max(2, $('brush').value * pxPerMm() * 0.5);
+    if (Math.hypot(p.x - paint.last.x, p.y - paint.last.y) >= step) { addExcl(p); draw(); }
+    return;
+  }
+  if (!drag) {
+    stage.style.cursor = tool === 'excl' ? 'crosshair' : hitMarker(p) ? 'pointer' : overRim(p) ? 'nwse-resize' : 'crosshair';
+    return;
+  }
+  if (!drag.active) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+    drag.active = true;
+  }
+  if (drag.rim) plate.r = clamp(Math.hypot(p.x - plate.cx, p.y - plate.cy), 40, 0.8 * Math.max(W, H));
+  else { plate.cx = p.x - drag.ox; plate.cy = p.y - drag.oy; }
+  $('plateR').value = Math.round(plate.r); syncOutputs(); draw();
+});
+const endDrag = () => {
+  if (paint) {
+    exclVer++; hist.push({ t: 'excl', items: paint.items }); paint = null; scheduleDetect(); updateResults(); renderLegend(); return;
+  }
+  if (!drag) return;
+  if (drag.active) { suppressClick = true; setTimeout(() => { suppressClick = false; }, 60); scheduleDetect(); }
+  drag = null;
+};
+stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+stage.addEventListener('keydown', e => {
+  if (!hasImage) return;
+  const st = e.shiftKey ? 10 : 1; let used = true;
+  if (e.key === 'ArrowLeft') plate.cx -= st; else if (e.key === 'ArrowRight') plate.cx += st;
+  else if (e.key === 'ArrowUp') plate.cy -= st; else if (e.key === 'ArrowDown') plate.cy += st;
+  else if (e.key === '+' || e.key === '=') plate.r = Math.min(0.8 * Math.max(W, H), plate.r + st);
+  else if (e.key === '-') plate.r = Math.max(40, plate.r - st);
+  else used = false;
+  if (used) { e.preventDefault(); $('plateR').value = Math.round(plate.r); syncOutputs(); draw(); scheduleDetect(); }
+});
+function hitMarker(p) {
+  const tol = 9 / dispScale();
+  let best = null, bd = Infinity;
+  const test = (o, kind) => { const d = Math.hypot(o.x - p.x, o.y - p.y); if (d < Math.max(o.r * 1.4, tol) && d < bd) { bd = d; best = { o, kind }; } };
+  if (studentMode) student.forEach(o => test(o, 's'));
+  else { added.forEach(o => test(o, 'm')); visible.forEach(o => test(o, 'a')); }
+  return best;
+}
+stage.addEventListener('click', e => {
+  if (!hasImage || suppressClick || tool === 'excl') return;
+  const p = toImg(e), best = hitMarker(p);
+  if (studentMode) {
+    if (best) { student.splice(student.indexOf(best.o), 1); hist.push({ t: 'delS', o: best.o }); }
+    else { const m = { x: p.x, y: p.y, r: studentR() }; student.push(m); hist.push({ t: 'addS', o: m }); }
+    cmp = null;
+  } else if (best) {
+    if (best.kind === 'm') { added.splice(added.indexOf(best.o), 1); hist.push({ t: 'delM', o: best.o }); }
+    else { const r = { x: best.o.x, y: best.o.y, r: best.o.r }; removed.push(r); hist.push({ t: 'delA', o: r }); refreshVisible(); }
+  } else {
+    const m = { x: p.x, y: p.y, r: studentR() }; added.push(m); hist.push({ t: 'addM', o: m });
+  }
+  refresh();
+});
+function studentR() {
+  const rs = auto.map(v => v.r).sort((a, b) => a - b);
+  return rs.length ? rs[rs.length >> 1] : Math.max(4, 0.35 * pxPerMm());
+}
+function undo() {
+  const h = hist.pop(); if (!h) return;
+  if (h.t === 'addM') added.splice(added.indexOf(h.o), 1);
+  else if (h.t === 'delM') added.push(h.o);
+  else if (h.t === 'delA') { removed.splice(removed.indexOf(h.o), 1); refreshVisible(); }
+  else if (h.t === 'addS') { student.splice(student.indexOf(h.o), 1); cmp = null; }
+  else if (h.t === 'delS') { student.push(h.o); cmp = null; }
+  else if (h.t === 'excl') { h.items.forEach(it => { const i = excl.indexOf(it); if (i >= 0) excl.splice(i, 1); }); exclVer++; scheduleDetect(); }
+  else if (h.t === 'exclAll') { excl.push(...h.items); exclVer++; scheduleDetect(); }
+  refresh();
+}
+$('undoBtn').onclick = undo;
+$('centerBtn').onclick = () => { if (!hasImage) return; plate.cx = W / 2; plate.cy = H / 2; draw(); scheduleDetect(); };
+$('autoPlateBtn').onclick = autoPlate;
+$('clearExcl').onclick = () => { if (!excl.length) return; hist.push({ t: 'exclAll', items: excl.slice() }); excl = []; exclVer++; scheduleDetect(); refresh(); };
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); } });
+
+/* ---------- câblage ---------- */
+function updateSolid() {
+  $('solidFields').hidden = !isSolid();
+  $('dilLabel').textContent = isSolid() ? 'Dilution de la suspension déposée (la suspension mère = 10⁰)' : 'Dilution de la suspension déposée';
+  $('formula').textContent = isSolid()
+    ? 'UFC/g = colonies ÷ (volume en mL × dilution) × (masse + diluant) ÷ masse (1 g ≈ 1 mL)'
+    : 'Concentration = colonies ÷ (volume en mL × facteur de dilution)';
+}
+function saveConc() { store('cc.conc', { vol: $('vol').value, unit: $('volUnit').value, dil: $('dil').value, sType: isSolid() ? 'solid' : 'liquid', mass: $('mass').value, diluent: $('diluent').value, range: $('range').value, oper: $('oper').value }); }
+document.querySelectorAll('input[name=tool]').forEach(r => r.addEventListener('change', () => {
+  tool = document.querySelector('input[name=tool]:checked').value;
+  stage.style.touchAction = tool === 'edit' ? 'auto' : 'none';
+  stage.style.cursor = 'crosshair'; setHint();
+}));
+['thr', 'minD', 'maxD', 'split', 'margin'].forEach(id => $(id).addEventListener('input', () => { syncOutputs(); scheduleDetect(); }));
+document.querySelectorAll('input[name=polar]').forEach(r => r.addEventListener('change', scheduleDetect));
+$('plateR').addEventListener('input', () => { plate.r = +$('plateR').value; syncOutputs(); draw(); scheduleDetect(); });
+$('plateMm').addEventListener('input', () => { store('cc.plateMm', $('plateMm').value); syncOutputs(); scheduleDetect(); updateResults(); });
+$('chan').addEventListener('change', () => { if (hasImage) { computeGray(); scheduleDetect(); } });
+$('preset').addEventListener('change', applyPreset);
+$('autoEdge').addEventListener('change', () => { if (hasImage) { const s = suggestAuto(); $('thr').value = s.thr; syncOutputs(); } scheduleDetect(); });
+['frac', 'ang'].forEach(id => $(id).addEventListener('input', () => { syncOutputs(); scheduleDetect(); }));
+$('brush').addEventListener('input', syncOutputs);
+['classMode', 'classK'].forEach(id => $(id).addEventListener('change', () => { classNames = []; refresh(); }));
+['vol', 'volUnit', 'dil', 'mass', 'diluent', 'oper'].forEach(id => $(id).addEventListener('input', () => { saveConc(); updateResults(); }));
+$('range').addEventListener('change', () => { saveConc(); updateResults(); renderSerie(); });
+document.querySelectorAll('input[name=sType]').forEach(r => r.addEventListener('change', () => { updateSolid(); saveConc(); updateResults(); }));
+['showMarks', 'showMask'].forEach(id => $(id).addEventListener('change', () => { if (id === 'showMask' && $('showMask').checked && lastBin) buildMask(); draw(); }));
+$('studentMode').addEventListener('change', () => {
+  studentMode = $('studentMode').checked; cmp = null; $('cmpBtn').hidden = !studentMode;
+  if (studentMode) { $('toolEdit').checked = true; $('toolEdit').dispatchEvent(new Event('change')); }
+  setHint(); refresh();
+});
+$('cmpBtn').onclick = () => { if (!hasImage) return; compareStudent(); refresh(); };
+$('zoom').addEventListener('change', applyZoom);
+window.addEventListener('resize', applyZoom);
+const pick = () => $('file').click();
+$('openBtn').onclick = pick; $('openBtn2').onclick = pick;
+$('file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
+$('camBtn').onclick = () => $('camFile').click();
+$('camFile').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
+$('openSession').onclick = () => $('sessionFile').click();
+$('sessionFile').addEventListener('change', e => { if (e.target.files[0]) loadSessionFile(e.target.files[0]); e.target.value = ''; });
+$('sampleBtn').onclick = genSample; $('sampleBtn2').onclick = genSample;
+wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
+wrap.addEventListener('dragleave', () => wrap.classList.remove('drop'));
+wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); loadFile(e.dataTransfer.files[0]); });
+
+/* ---------- démarrage ---------- */
+(function init() {
+  const c = load('cc.conc', null);
+  if (c) {
+    $('vol').value = c.vol; $('volUnit').value = c.unit; $('dil').value = c.dil;
+    if (c.mass) $('mass').value = c.mass; if (c.diluent) $('diluent').value = c.diluent; if (c.range) $('range').value = c.range; if (c.oper) $('oper').value = c.oper;
+    $(c.sType === 'solid' ? 'sSolid' : 'sLiquid').checked = true;
+  }
+  const pm = load('cc.plateMm', null); if (pm) $('plateMm').value = pm;
+  updateSolid(); syncOutputs(); renderSerie(); updateResults(); renderLegend();
+})();
+})();
+</script>
+</body>
+</html>
