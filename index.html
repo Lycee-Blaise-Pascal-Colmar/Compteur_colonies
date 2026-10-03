@@ -162,6 +162,22 @@ tr.low td{color:var(--ink-2)}
   .side summary{min-height:48px;display:flex;align-items:center}
   input[type=range]{height:36px}
 }
+@media (orientation:landscape) and (max-height:520px){
+  .app{grid-template-columns:minmax(0,1fr) min(44vw,360px);height:100vh;height:100dvh;min-height:0}
+  .work{height:100vh;height:100dvh;overflow-y:auto;padding:8px 12px 12px}
+  .side{position:static;height:100vh;height:100dvh;max-height:none;overflow-y:auto;border-left:1px solid var(--line);border-top:0;padding:12px 14px 20px}
+  .livebar,.livebar[hidden]{display:none !important}
+  .top h1{font-size:18px}
+  .top p{display:none}
+  .toolbar{margin:6px 0}
+  .toolbar .btn,.btn{min-height:40px;font-size:15px}
+  .toolbar #openBtn,.toolbar #camBtn{flex:0 0 auto}
+  .toolbar .seg{width:auto}
+  .seg label{min-height:40px;line-height:40px}
+  .stagewrap{height:calc(100vh - 130px);height:calc(100dvh - 130px);min-height:200px}
+  .count output{font-size:48px}
+  .result{scroll-margin-top:0}
+}
 @media (pointer:coarse){
   #sampleBtn2{display:none}
 }
