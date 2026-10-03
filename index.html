@@ -34,6 +34,13 @@
   --ok:#6fd89b; --ok-bg:#12331f; --warn:#f2b862; --warn-bg:#3a2a0c; --bad:#ff8fa3; --bad-bg:#40121c;
 }
 *,*::before,*::after{box-sizing:inherit}
+html{-webkit-text-size-adjust:100%}
+html,body{overscroll-behavior-y:contain}
+button,label,summary,select,.btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.97)}
+.stagewrap{overscroll-behavior:contain;scroll-margin-top:56px}
+#stage{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+
 [hidden]{display:none !important}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -940,6 +947,7 @@ function setImage(src) {
   imgCanvas.getContext('2d').drawImage(src, 0, 0, imgCanvas.width, imgCanvas.height);
   sampleTruth = null;
   const found = finishImage();
+  if (matchMedia('(max-width:960px) and (orientation:portrait)').matches) $('wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
   toast(found ? 'Boîte détectée automatiquement : vérifiez le cadre.' : 'Boîte non détectée : placez le cadre à la main.');
 }
 function loadFile(file) {
