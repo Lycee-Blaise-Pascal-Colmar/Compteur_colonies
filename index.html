@@ -215,9 +215,9 @@ tr.low td{color:var(--ink-2)}
       <input id="camFile" type="file" accept="image/*" capture="environment" hidden>
       <button class="btn" id="sampleBtn" type="button">Boîte d'exemple</button>
       <div class="seg" role="radiogroup" aria-label="Outil actif">
-        <input type="radio" name="tool" id="toolFrame" value="frame" checked><label for="toolFrame">Cadre</label>
-        <input type="radio" name="tool" id="toolEdit" value="edit"><label for="toolEdit">Corriger</label>
-        <input type="radio" name="tool" id="toolExcl" value="excl"><label for="toolExcl">Exclure</label>
+        <input type="radio" name="tool" id="toolFrame" value="frame" autocomplete="off" checked><label for="toolFrame">Cadre</label>
+        <input type="radio" name="tool" id="toolEdit" value="edit" autocomplete="off"><label for="toolEdit">Corriger</label>
+        <input type="radio" name="tool" id="toolExcl" value="excl" autocomplete="off"><label for="toolExcl">Exclure</label>
       </div>
       <button class="btn" id="undoBtn" type="button" disabled>Annuler</button>
       <label class="chk"><input type="checkbox" id="studentMode"> Mode élève</label>
@@ -936,6 +936,7 @@ function finishImage(opts) {
   }
   const pr = $('plateR'); pr.max = Math.round(0.8 * Math.max(W, H)); pr.value = Math.round(plate.r);
   if (!opts.keep) {
+    if (!(typeof studentMode !== 'undefined' && studentMode)) { $('toolFrame').checked = true; $('toolFrame').dispatchEvent(new Event('change')); }
     const s = suggestAuto(); $('thr').value = s.thr;
     $(s.light ? 'polLight' : 'polDark').checked = true;
     $('preset').value = 'auto';
@@ -1585,6 +1586,7 @@ document.querySelectorAll('input[name=tool]').forEach(r => r.addEventListener('c
   stage.style.touchAction = tool === 'edit' ? 'auto' : 'none';
   stage.style.cursor = 'crosshair'; setHint();
 }));
+$('toolFrame').checked = true; tool = 'frame'; stage.style.touchAction = 'none';
 ['thr', 'minD', 'maxD', 'split', 'margin'].forEach(id => $(id).addEventListener('input', () => { syncOutputs(); scheduleDetect(); }));
 document.querySelectorAll('input[name=polar]').forEach(r => r.addEventListener('change', scheduleDetect));
 $('plateR').addEventListener('input', () => { plate.r = +$('plateR').value; syncOutputs(); draw(); scheduleDetect(); });
