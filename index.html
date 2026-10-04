@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Compteur de colonies</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0e7c86">
+<meta name="theme-color" content="#2e7d4f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -17,8 +17,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
-  --ink:#14262e; --ink-2:#4a5f67; --paper:#e9eff0; --panel:#ffffff; --line:#c8d6d9;
-  --accent:#0e7c86; --accent-ink:#ffffff; --bench:#0f1a1f;
+  --ink:#1c2a1f; --ink-2:#53665a; --paper:#eef3ec; --panel:#ffffff; --line:#d0dccf;
+  --accent:#2e7d4f; --accent-ink:#ffffff; --bench:#10190f;
   --ok:#1b7243; --ok-bg:#dcf1e4; --warn:#8a4b00; --warn-bg:#fbeacb; --bad:#a3162f; --bad-bg:#fadadf;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -26,14 +26,14 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --ink:#e3eef0; --ink-2:#9fb4bb; --paper:#0d171b; --panel:#15252b; --line:#2a4048;
-    --accent:#47c4cf; --accent-ink:#04262a; --bench:#070d0f;
+    --ink:#e4efe6; --ink-2:#9db3a3; --paper:#0e1710; --panel:#16251a; --line:#2a4230;
+    --accent:#7fd69c; --accent-ink:#06260f; --bench:#080e09;
     --ok:#6fd89b; --ok-bg:#12331f; --warn:#f2b862; --warn-bg:#3a2a0c; --bad:#ff8fa3; --bad-bg:#40121c;
   }
 }
 :root[data-theme="dark"]{
-  --ink:#e3eef0; --ink-2:#9fb4bb; --paper:#0d171b; --panel:#15252b; --line:#2a4048;
-  --accent:#47c4cf; --accent-ink:#04262a; --bench:#070d0f;
+  --ink:#e4efe6; --ink-2:#9db3a3; --paper:#0e1710; --panel:#16251a; --line:#2a4230;
+  --accent:#7fd69c; --accent-ink:#06260f; --bench:#080e09;
   --ok:#6fd89b; --ok-bg:#12331f; --warn:#f2b862; --warn-bg:#3a2a0c; --bad:#ff8fa3; --bad-bg:#40121c;
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -1290,7 +1290,7 @@ function drawHist() {
   const nb = Math.max(2, Math.round((hi - lo) / 0.25)), bins = new Array(nb).fill(0);
   d.forEach(v => { bins[Math.min(nb - 1, Math.floor((v - lo) / (hi - lo) * nb))]++; });
   const mx = Math.max(...bins), st = getComputedStyle(document.documentElement);
-  const accent = st.getPropertyValue('--accent').trim() || '#0e7c86', ink = st.getPropertyValue('--ink-2').trim() || '#666';
+  const accent = st.getPropertyValue('--accent').trim() || '#2e7d4f', ink = st.getPropertyValue('--ink-2').trim() || '#666';
   const padB = 18, bw = w / nb;
   c.fillStyle = accent;
   bins.forEach((v, i) => { const bh = (h - padB - 4) * v / mx; c.fillRect(i * bw + 1, h - padB - bh, Math.max(1, bw - 2), bh); });
