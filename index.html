@@ -159,7 +159,7 @@ tr.low td{color:var(--ink-2)}
   .toolbar #camBtn{order:-1;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .toolbar #openBtn{order:-1;background:var(--panel);color:var(--ink);border-color:var(--line)}
   .toolbar .seg{width:100%}
-  .seg label{flex:1;text-align:center;min-height:46px;line-height:46px;padding:0 8px}
+  .seg label{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;line-height:1.2;padding:6px 8px}
   .toolbar .grow{display:none}
   .chk{min-height:40px;font-size:16px}
   .chk input{width:22px;height:22px}
@@ -183,7 +183,7 @@ tr.low td{color:var(--ink-2)}
   .toolbar .btn,.btn{min-height:40px;font-size:15px}
   .toolbar #openBtn,.toolbar #camBtn{flex:0 0 auto}
   .toolbar .seg{width:auto}
-  .seg label{min-height:40px;line-height:40px}
+  .seg label{display:flex;align-items:center;justify-content:center;min-height:40px;line-height:1.2}
   .stagewrap{height:calc(100vh - 130px);height:calc(100dvh - 130px);min-height:200px}
   .count output{font-size:48px}
   .result{scroll-margin-top:0}
@@ -686,10 +686,11 @@ function suggest(gray, W, H, plate, marginPx, autoEdge) {
   const med = s[s.length >> 1];
   const dev = Float32Array.from(s, v => Math.abs(v - med)).sort();
   const sigma = 1.4826 * dev[dev.length >> 1];
-  let pos = 0, neg = 0;
-  const t = Math.max(4, 3 * sigma);
-  for (const v of vals) { if (v - med > t) pos++; else if (v - med < -t) neg++; }
-  return { light: pos >= neg, thr: Math.min(40, Math.max(6, Math.round(3 * sigma))) };
+  /* Polarité : on compare l'amplitude des extrêmes (colonies = écarts forts et localisés),
+     et non le nombre de pixels, que le fond légèrement assombri autour des colonies fausse. */
+  const q = f => s[Math.min(s.length - 1, Math.floor(f * s.length))];
+  const hi = q(0.985) - med, lo = med - q(0.015);
+  return { light: hi >= lo, thr: Math.min(40, Math.max(6, Math.round(3 * sigma))) };
 }
 
 /* Détection automatique de la boîte (transformée de Hough sur les contours, image réduite) */
